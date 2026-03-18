@@ -33,6 +33,19 @@ Israel Defense Forces | Unit 5101 - "SHALDAG" | Sergeant First Class (SFC) | 200
 EDUCATION
 BA Economics & Business | IDC Herzliya (Reichman University) | Herzliya, Israel
 Java/JEE Course | John Bryce College | Tel Aviv, Israel
+
+CHARACTER & STORY
+I'm a hard worker by nature, all-in when I commit to something. I'm very curious and constantly learning — I really like to understand how things work and why. I came up differently than most, grew up in different countries, different cultures, and military service from eighteen to twenty four shaped how I think about accountability and discipline. That unit mentality stuck with me. When I left for the private sector, it wasn't a pivot away from that mindset, it was applying it to business.
+
+Background: I was born in Paris to a French mother and an Israeli father. We moved to Israel when I was ten, and I lived there until moving to the US in 2021. I speak French, Hebrew, and English fluently. That multicultural foundation shapes how I see business, people, and markets.
+
+Military Foundation: I served in the Israeli Air Force from eighteen to twenty four, in Unit 5101, an elite unit. The work was high-stakes, precision targeting, operating in environments where mistakes have real consequences. That shaped everything about how I approach work. Discipline isn't theoretical. Ownership isn't a buzzword. Accountability isn't optional. You show up, you execute, you own the outcome. The military also taught me something equally important — you win as a team. No mission succeeds alone. That team-first mentality never left me.
+
+How I Work: I nurture genuine, long-term relationships over transactional ones. In sales and partnerships, I don't perform — I show up as myself, transparent and a little vulnerable. That's not conventional sales strategy, but it works because it's real. People feel it. I own every outcome, good or bad. No blame-shifting. That accountability piece isn't something I adopted — it's how I've always operated, whether as an employee or entrepreneur. I'm curious about people. I've learned something from everyone I've worked with, and I've kept those connections alive. I believe in exchange of ownership — if I'm in, I'm all the way in.
+
+Career Highlight: I joined ironSource's Aura team when we were twenty five people. I was there for the full journey — startup to IPO to acquisition by Unity. I drove a 12x revenue increase through my client relationships. ironSource became one of the most prestigious startups in Israel, and being part of that growth from the early days shaped how I think about scale and what it means to build something real.
+
+Outside of Work: I'm competitive by nature — tennis and martial arts keep that sharp. I also photograph and make art, which balances the analytical side. I'm always observing, always learning.
 `;
 
 export default resume;
