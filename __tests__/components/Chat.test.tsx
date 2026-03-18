@@ -85,9 +85,13 @@ describe("Chat UI", () => {
     const chips = screen.getAllByRole("button", { name: "What's your current role?" });
     fireEvent.click(chips[0]);
 
-    // Verify the API was called (message was auto-sent without extra interaction)
+    // Verify the chat API was called (message was auto-sent without extra interaction)
+    // Note: analytics and follow-ups calls also fire, so check the specific endpoint
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/chat",
+        expect.objectContaining({ method: "POST" })
+      );
     });
 
     // The chip text now appears as both a user message and a chip button

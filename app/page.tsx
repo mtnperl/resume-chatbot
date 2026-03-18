@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, memo, useCallback } from "react";
 import type { Anthropic } from "@anthropic-ai/sdk";
 import ReactMarkdown from "react-markdown";
 import { MAX_MESSAGES } from "@/lib/constants";
+import jsPDF from "jspdf";
 
 type Message = Anthropic.MessageParam & { id: string };
 
@@ -27,15 +28,23 @@ const SUGGESTED_QUESTIONS = [
 const MessageBubble = memo(function MessageBubble({
   message,
   isStreaming,
+  prevUserQuestion,
 }: {
   message: Message;
   isStreaming: boolean;
+  prevUserQuestion?: string;
 }) {
   const content = message.content as string;
   const isUser = message.role === "user";
+  const isWelcome = message.id === "welcome";
+  const showAskButton = !isUser && !isWelcome && !isStreaming && content && prevUserQuestion;
+
+  const mailtoHref = showAskButton
+    ? `mailto:perlmathan@gmail.com?subject=${encodeURIComponent("Question via Resume Chatbot")}&body=${encodeURIComponent(`Hi Mathan,\n\nI was checking out your resume chatbot and wanted to ask you directly:\n\n${prevUserQuestion}`)}`
+    : "";
 
   return (
-    <div className={`message-bubble flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`message-bubble flex flex-col ${isUser ? "items-end" : "items-start"}`}>
       <div
         className="max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed"
         style={
@@ -80,6 +89,15 @@ const MessageBubble = memo(function MessageBubble({
           <span className="animate-pulse opacity-50">▍</span>
         )}
       </div>
+      {showAskButton && (
+        <a
+          href={mailtoHref}
+          className="mt-1 text-xs transition-opacity hover:opacity-100 opacity-50"
+          style={{ color: "var(--accent-glow)" }}
+        >
+          ↗ Ask Mathan directly
+        </a>
+      )}
     </div>
   );
 });
@@ -331,6 +349,9 @@ export default function Home() {
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
+  const [shareToast, setShareToast] = useState<"idle" | "copying" | "copied">("idle");
+  const sessionId = useRef<string>(crypto.randomUUID());
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Load persisted theme (after hydration to avoid SSR mismatch)
@@ -374,6 +395,19 @@ export default function Home() {
       setInput("");
       setIsLoading(true);
       setStreamingId(assistantMessage.id);
+      setFollowUpQuestions([]);
+
+      // Log to analytics (fire-and-forget)
+      fetch("/api/analytics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: text.trim(),
+          sessionId: sessionId.current,
+          referrer: document.referrer || null,
+          messageCount: updatedMessages.length,
+        }),
+      }).catch(() => {});
 
       try {
         const response = await fetch("/api/chat", {
@@ -389,10 +423,12 @@ export default function Home() {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let fullContent = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value);
+          fullContent += chunk;
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessage.id
@@ -400,6 +436,22 @@ export default function Home() {
                 : m
             )
           );
+        }
+
+        // Fetch follow-up questions in the background after stream completes
+        if (fullContent) {
+          fetch("/api/follow-ups", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lastAnswer: fullContent }),
+          })
+            .then((r) => r.json())
+            .then(({ questions }) => {
+              if (Array.isArray(questions) && questions.length > 0) {
+                setFollowUpQuestions(questions);
+              }
+            })
+            .catch(() => {});
         }
       } catch (err) {
         console.error(err);
@@ -421,6 +473,99 @@ export default function Home() {
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
     handleSend(input);
+  }
+
+  function downloadPDF() {
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const contentWidth = pageWidth - margin * 2;
+    let y = 20;
+
+    // Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(26, 29, 38);
+    doc.text("Conversation with Mathan Perl", margin, y);
+    y += 7;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(90, 99, 117);
+    doc.text(new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), margin, y);
+    y += 3;
+
+    // Divider
+    doc.setDrawColor(200, 205, 214);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    const conversationMessages = messages.filter((m) => m.id !== "welcome");
+    for (const msg of conversationMessages) {
+      const isUser = msg.role === "user";
+      const label = isUser ? "RECRUITER" : "MATHAN.AI";
+      const content = msg.content as string;
+
+      // Label
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(isUser ? 37 : 110, isUser ? 99 : 131, isUser ? 235 : 255);
+      doc.text(label, margin, y);
+      y += 5;
+
+      // Content (strip markdown)
+      const plain = content
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/\*(.*?)\*/g, "$1")
+        .replace(/^#+\s/gm, "")
+        .replace(/^[-*]\s/gm, "• ");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(42, 47, 61);
+      const lines = doc.splitTextToSize(plain, contentWidth);
+
+      // Page overflow check
+      if (y + lines.length * 5 > 277) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.text(lines, margin, y);
+      y += lines.length * 5 + 8;
+    }
+
+    // Footer
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(154, 160, 175);
+    doc.text("perlmathan@gmail.com · +1 917-715-1544 · linkedin.com/in/mathan-perl-9b442076", margin, 285);
+
+    doc.save("mathan-perl-conversation.pdf");
+  }
+
+  const canDownload = messages.filter((m) => m.id !== "welcome").length >= 2;
+  const canShare = canDownload;
+
+  async function shareConversation() {
+    if (shareToast !== "idle") return;
+    setShareToast("copying");
+    try {
+      const conversation = messages
+        .filter((m) => m.id !== "welcome")
+        .map(({ role, content }) => ({ role, content }));
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: conversation }),
+      });
+      const { url } = await res.json();
+      await navigator.clipboard.writeText(url);
+      setShareToast("copied");
+      setTimeout(() => setShareToast("idle"), 2500);
+    } catch {
+      setShareToast("idle");
+    }
   }
 
   return (
@@ -447,6 +592,45 @@ export default function Home() {
 
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle theme={theme} onToggle={() => setTheme(theme === "light" ? "dark" : "light")} />
+            {canShare && (
+              <button
+                onClick={shareConversation}
+                disabled={shareToast === "copying"}
+                className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-60"
+                style={{ border: "1px solid var(--header-btn-border)", color: shareToast === "copied" ? "var(--accent-glow)" : "var(--metal-mid)" }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.borderColor = "var(--chip-hover-border)";
+                  el.style.color = "var(--chrome-shine)";
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.borderColor = "var(--header-btn-border)";
+                  el.style.color = shareToast === "copied" ? "var(--accent-glow)" : "var(--metal-mid)";
+                }}
+              >
+                {shareToast === "copied" ? "✓ Copied!" : shareToast === "copying" ? "…" : "↗ Share"}
+              </button>
+            )}
+            {canDownload && (
+              <button
+                onClick={downloadPDF}
+                className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all"
+                style={{ border: "1px solid var(--header-btn-border)", color: "var(--metal-mid)" }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.borderColor = "var(--chip-hover-border)";
+                  el.style.color = "var(--chrome-shine)";
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLButtonElement;
+                  el.style.borderColor = "var(--header-btn-border)";
+                  el.style.color = "var(--metal-mid)";
+                }}
+              >
+                ↓ PDF
+              </button>
+            )}
             <button
               onClick={() => setShowContact(true)}
               className="rounded-full px-4 py-1.5 text-sm font-medium transition-all"
@@ -472,13 +656,56 @@ export default function Home() {
         {/* Messages */}
         <main className="flex flex-1 flex-col items-center overflow-y-auto px-4 py-6">
           <div className="w-full max-w-2xl space-y-4">
-            {messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                isStreaming={isLoading && message.id === streamingId}
-              />
-            ))}
+            {messages.map((message, i) => {
+              const prevUserMsg = messages
+                .slice(0, i)
+                .reverse()
+                .find((m) => m.role === "user");
+              const isLastMessage = i === messages.length - 1;
+              return (
+                <div key={message.id}>
+                  <MessageBubble
+                    message={message}
+                    isStreaming={isLoading && message.id === streamingId}
+                    prevUserQuestion={prevUserMsg?.content as string | undefined}
+                  />
+                  {/* Follow-up chips below the last assistant message */}
+                  {isLastMessage &&
+                    message.role === "assistant" &&
+                    !isLoading &&
+                    followUpQuestions.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {followUpQuestions.map((q) => (
+                          <button
+                            key={q}
+                            onClick={() => handleSend(q)}
+                            className="rounded-xl px-3 py-1.5 text-xs transition-all"
+                            style={{
+                              background: "var(--chip-bg)",
+                              border: "1px solid var(--chip-border)",
+                              color: "var(--metal-mid)",
+                            }}
+                            onMouseEnter={(e) => {
+                              const el = e.currentTarget as HTMLButtonElement;
+                              el.style.borderColor = "var(--chip-hover-border)";
+                              el.style.color = "var(--chip-hover-color)";
+                              el.style.boxShadow = "var(--chip-hover-glow)";
+                            }}
+                            onMouseLeave={(e) => {
+                              const el = e.currentTarget as HTMLButtonElement;
+                              el.style.borderColor = "var(--chip-border)";
+                              el.style.color = "var(--metal-mid)";
+                              el.style.boxShadow = "none";
+                            }}
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                </div>
+              );
+            })}
 
             {atMessageLimit && (
               <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
