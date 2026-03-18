@@ -52,7 +52,8 @@ describe("Chat UI", () => {
   it("[D] send button is enabled when input has text", async () => {
     const user = userEvent.setup();
     render(<Home />);
-    const input = screen.getByPlaceholderText(/Ask about my experience/i);
+    // The input placeholder changed with the redesign ("his" instead of "my")
+    const input = screen.getByPlaceholderText(/Ask about his experience/i);
     await user.type(input, "Hello");
     const sendBtn = screen.getByRole("button", { name: /send/i });
     expect(sendBtn).not.toBeDisabled();
@@ -63,7 +64,7 @@ describe("Chat UI", () => {
     const user = userEvent.setup();
     render(<Home />);
 
-    const input = screen.getByPlaceholderText(/Ask about my experience/i);
+    const input = screen.getByPlaceholderText(/Ask about his experience/i);
     await user.type(input, "What is your name?");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
@@ -80,9 +81,9 @@ describe("Chat UI", () => {
     mockFetch.mockResolvedValue(makeStreamResponse("I work at Unity."));
     render(<Home />);
 
-    // Click the chip button
-    const chip = screen.getByRole("button", { name: "What's your current role?" });
-    fireEvent.click(chip);
+    // The redesign renders chips in both sidebar and mobile footer — take the first
+    const chips = screen.getAllByRole("button", { name: "What's your current role?" });
+    fireEvent.click(chips[0]);
 
     // Verify the API was called (message was auto-sent without extra interaction)
     await waitFor(() => {
@@ -99,7 +100,7 @@ describe("Chat UI", () => {
     const user = userEvent.setup();
     render(<Home />);
 
-    const input = screen.getByPlaceholderText(/Ask about my experience/i);
+    const input = screen.getByPlaceholderText(/Ask about his experience/i);
     await user.type(input, "Test question");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
@@ -116,7 +117,7 @@ describe("Chat UI", () => {
     const user = userEvent.setup();
     render(<Home />);
 
-    const input = screen.getByPlaceholderText(/Ask about my experience/i);
+    const input = screen.getByPlaceholderText(/Ask about his experience/i);
     await user.type(input, "Test question");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
@@ -126,8 +127,9 @@ describe("Chat UI", () => {
 
   it("[F] clicking 'Get in touch' opens the contact modal", async () => {
     render(<Home />);
-    const contactBtn = screen.getByRole("button", { name: /get in touch/i });
-    fireEvent.click(contactBtn);
+    // The redesign has two "Get in touch" buttons (sidebar + header) — take the first
+    const contactBtns = screen.getAllByRole("button", { name: /get in touch/i });
+    fireEvent.click(contactBtns[0]);
 
     expect(screen.getByText(/Get in touch with Mathan/i)).toBeInTheDocument();
     expect(
@@ -137,7 +139,8 @@ describe("Chat UI", () => {
 
   it("[F] contact modal can be closed", async () => {
     render(<Home />);
-    fireEvent.click(screen.getByRole("button", { name: /get in touch/i }));
+    const contactBtns = screen.getAllByRole("button", { name: /get in touch/i });
+    fireEvent.click(contactBtns[0]);
     expect(screen.getByText(/Get in touch with Mathan/i)).toBeInTheDocument();
 
     // Close button
@@ -152,7 +155,7 @@ describe("Chat UI", () => {
     // We test by checking the UI state; the actual limit enforcement is tested in the API tests
     render(<Home />);
     // The welcome message is pre-loaded but doesn't count toward the limit
-    const input = screen.getByPlaceholderText(/Ask about my experience/i);
+    const input = screen.getByPlaceholderText(/Ask about his experience/i);
     expect(input).not.toBeDisabled();
   });
 });

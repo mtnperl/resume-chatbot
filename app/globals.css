@@ -1,26 +1,130 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════
+   LIQUID METAL DESIGN SYSTEM
+═══════════════════════════════════════════════ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-void: #050508;
+  --bg-surface: #0c0c12;
+  --bg-elevated: #12121a;
+  --metal-light: #c8cdd6;
+  --metal-mid: #8892a0;
+  --metal-dark: #4a5260;
+  --chrome-shine: #e8edf5;
+  --accent-glow: #6eb5ff;
+  --accent-hot: #4f8ef7;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-glow: rgba(110, 181, 255, 0.2);
+  --text-primary: #e8edf5;
+  --text-secondary: #8892a0;
+  --text-muted: #4a5260;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ── Base ─────────────────────────────────────── */
+html,
+body {
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ── Space background ─────────────────────────── */
+.space-bg {
+  background: radial-gradient(ellipse at 40% 50%, #0d1220 0%, #050508 70%);
+  position: relative;
+}
+
+/* Static star dots */
+.space-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.45) 0%, transparent 100%),
+    radial-gradient(1px 1px at 71% 11%, rgba(255, 255, 255, 0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 87% 63%, rgba(255, 255, 255, 0.40) 0%, transparent 100%),
+    radial-gradient(1px 1px at 33% 79%, rgba(255, 255, 255, 0.30) 0%, transparent 100%),
+    radial-gradient(1px 1px at 54% 41%, rgba(255, 255, 255, 0.45) 0%, transparent 100%),
+    radial-gradient(1px 1px at 91% 32%, rgba(255, 255, 255, 0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 7%  87%, rgba(255, 255, 255, 0.40) 0%, transparent 100%),
+    radial-gradient(1px 1px at 62% 92%, rgba(255, 255, 255, 0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 44% 6%,  rgba(255, 255, 255, 0.30) 0%, transparent 100%),
+    radial-gradient(1px 1px at 22% 55%, rgba(255, 255, 255, 0.20) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Slow heat-distortion mesh */
+.space-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 80%, rgba(79, 142, 247, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(110, 181, 255, 0.04) 0%, transparent 55%);
+  animation: mesh-drift 22s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Keyframes ────────────────────────────────── */
+@keyframes mesh-drift {
+  0%   { opacity: 0.6; transform: scale(1) translate(0, 0); }
+  100% { opacity: 1;   transform: scale(1.06) translate(12px, -6px); }
+}
+
+@keyframes glow-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 12px rgba(79, 142, 247, 0.3),
+      0 0 0 2px rgba(110, 181, 255, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 28px rgba(79, 142, 247, 0.65),
+      0 0 0 2px rgba(110, 181, 255, 0.45);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes message-appear {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes dot-glow {
+  0%, 100% {
+    opacity: 0.3;
+    box-shadow: 0 0 4px rgba(79, 142, 247, 0.3);
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 10px rgba(79, 142, 247, 0.9);
+    transform: scale(1.15);
+  }
+}
+
+/* ── Utility classes ──────────────────────────── */
+.avatar-glow {
+  animation: glow-breathe 3s ease-in-out infinite;
+}
+
+.message-bubble {
+  animation: message-appear 0.2s ease-out;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-glow);
+  animation: dot-glow 1.4s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Scrollbar ────────────────────────────────── */
+::-webkit-scrollbar             { width: 4px; }
+::-webkit-scrollbar-track       { background: transparent; }
+::-webkit-scrollbar-thumb       { background: rgba(110, 181, 255, 0.2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(110, 181, 255, 0.4); }
