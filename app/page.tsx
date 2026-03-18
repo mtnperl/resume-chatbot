@@ -39,9 +39,10 @@ const MessageBubble = memo(function MessageBubble({
   const isWelcome = message.id === "welcome";
   const showAskButton = !isUser && !isWelcome && !isStreaming && content && prevUserQuestion;
 
-  const mailtoHref = showAskButton
-    ? `https://mail.google.com/mail/?view=cm&to=perlmathan@gmail.com&su=${encodeURIComponent("Question via Resume Chatbot")}&body=${encodeURIComponent(`Hi Mathan,\n\nI was checking out your resume chatbot and wanted to ask you directly:\n\n${prevUserQuestion}`)}`
-    : "";
+  function handleAskDirectly() {
+    const url = `https://mail.google.com/mail/u/0/?view=cm&fs=1&to=perlmathan@gmail.com&su=${encodeURIComponent("Question via Resume Chatbot")}&body=${encodeURIComponent(`Hi Mathan,\n\nI was checking out your resume chatbot and wanted to ask you directly:\n\n${prevUserQuestion ?? ""}`)}`;
+    window.open(url, "_blank");
+  }
 
   return (
     <div className={`message-bubble flex flex-col ${isUser ? "items-end" : "items-start"}`}>
@@ -90,15 +91,13 @@ const MessageBubble = memo(function MessageBubble({
         )}
       </div>
       {showAskButton && (
-        <a
-          href={mailtoHref}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          onClick={handleAskDirectly}
           className="mt-1 text-xs transition-opacity hover:opacity-100 opacity-50"
           style={{ color: "var(--accent-glow)" }}
         >
           ↗ Ask Mathan directly
-        </a>
+        </button>
       )}
     </div>
   );
