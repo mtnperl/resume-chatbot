@@ -195,7 +195,7 @@ function Sidebar({
           <img
             src="/profile_mathan.jpg"
             alt="Mathan Perl"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-top"
           />
         </div>
 
