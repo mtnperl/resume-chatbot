@@ -11,15 +11,6 @@
 **Effort:** S (human: ~2 hours) → with CC+gstack: S (~10 min)
 **Depends on:** v1 shipped with hard cap first
 
-### Slack notification on contact form submit
-**What:** When a recruiter submits the contact form, send Mathan a Slack DM with their name, email, message, and the last question they asked the bot.
-**Why:** The whole point of lead capture is awareness in real-time. Email notifications can be missed; Slack is where Mathan works.
-**Pros:** Immediate awareness of warm leads; includes conversation context.
-**Cons:** Requires a Slack workspace + incoming webhook URL.
-**Context:** Contact form will be implemented in v1 (sends email/mailto). This upgrades the notification channel to Slack. Use Slack incoming webhooks API — no Slack SDK needed. Add `SLACK_WEBHOOK_URL` to env vars.
-**Effort:** S (human: ~1 hour) → with CC+gstack: S (~15 min)
-**Depends on:** Contact form shipped in v1
-
 ## P2
 
 ### E2E tests with Playwright
@@ -38,4 +29,30 @@
 **Cons:** Cached answers may feel slightly stale if resume changes (clear cache on resume update).
 **Context:** Implement as a lookup in `app/api/chat/route.ts` before calling Anthropic. Key: `cache:{sha256(messages[-1].content)}`. Clear all cache keys when admin updates resume. Use Vercel KV with EX 86400 (24h TTL).
 **Effort:** M (human: ~4 hours) → with CC+gstack: S (~20 min)
-**Depends on:** Analytics dashboard shipped (to know which questions to prioritize); admin resume editor (to know when to clear cache)
+**Depends on:** ~~Analytics dashboard shipped~~ (done in v0.2.0.0); admin resume editor (to know when to clear cache)
+
+## Completed
+
+### Analytics dashboard
+**Completed:** v0.2.0.0 (2026-03-18)
+Every question logged to Vercel KV; private dashboard at `/dashboard?key=DASHBOARD_SECRET` with traffic chart, top questions, and recent feed.
+
+### Dynamic follow-up questions
+**Completed:** v0.2.0.0 (2026-03-18)
+After each assistant response, 3 contextual follow-up chips generated via `/api/follow-ups`.
+
+### Share conversation
+**Completed:** v0.2.0.0 (2026-03-18)
+"↗ Share" button stores conversation in KV and copies unique URL to clipboard; `/share/[id]` renders read-only transcript.
+
+### Download PDF
+**Completed:** v0.2.0.0 (2026-03-18)
+Client-side PDF export via jsPDF; appears in header after 2+ messages.
+
+### Ask Mathan directly
+**Completed:** v0.2.0.0 (2026-03-18)
+Subtle mailto link below each assistant response, pre-filled with the recruiter's question.
+
+### Session memory (no-repeat prompt)
+**Completed:** v0.2.0.0 (2026-03-18)
+System prompt updated to instruct Claude to never repeat covered information.
