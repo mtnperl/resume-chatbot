@@ -1,23 +1,157 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════
-   LIQUID METAL DESIGN SYSTEM
+   DESIGN TOKENS — Light mode (default)
 ═══════════════════════════════════════════════ */
 :root {
-  --bg-void: #050508;
+  /* Surfaces */
+  --bg-void:    #f4f6f9;
+  --bg-surface: #ffffff;
+  --bg-elevated:#f0f2f6;
+
+  /* Text */
+  --chrome-shine:  #0d0f14;
+  --metal-light:   #1a1d26;
+  --metal-mid:     #5a6375;
+  --metal-dark:    #9aa0af;
+  --text-primary:  #1a1d26;
+  --text-secondary:#5a6375;
+  --text-muted:    #9aa0af;
+
+  /* Accent */
+  --accent-glow: #3b82f6;
+  --accent-hot:  #2563eb;
+
+  /* Borders */
+  --border-subtle: rgba(0, 0, 0, 0.07);
+  --border-glow:   rgba(59, 130, 246, 0.25);
+
+  /* Sidebar */
+  --sidebar-bg:       rgba(255, 255, 255, 0.94);
+  --sidebar-border-r: rgba(0, 0, 0, 0.08);
+  --sidebar-shadow:   inset 0 1px 0 rgba(0, 0, 0, 0.04);
+
+  /* Header */
+  --header-border:     rgba(0, 0, 0, 0.07);
+  --header-btn-border: rgba(0, 0, 0, 0.15);
+
+  /* Divider */
+  --divider-bg: linear-gradient(to right, transparent, rgba(0,0,0,0.1), transparent);
+
+  /* Avatar */
+  --avatar-bg:  linear-gradient(135deg, #dbeafe, #eff6ff);
+  --avatar-ring: rgba(59, 130, 246, 0.35);
+  --glow-min: 0 0 12px rgba(37, 99, 235, 0.2),  0 0 0 2px rgba(59, 130, 246, 0.2);
+  --glow-max: 0 0 24px rgba(37, 99, 235, 0.45), 0 0 0 2px rgba(59, 130, 246, 0.4);
+
+  /* Chips */
+  --chip-bg:          rgba(0, 0, 0, 0.04);
+  --chip-border:      rgba(0, 0, 0, 0.08);
+  --chip-hover-border:rgba(59, 130, 246, 0.35);
+  --chip-hover-glow:  0 0 10px rgba(37, 99, 235, 0.07);
+  --chip-hover-color: #1a1d26;
+
+  /* Input */
+  --input-bg:           rgba(0, 0, 0, 0.04);
+  --input-border:       rgba(0, 0, 0, 0.10);
+  --input-shadow:       0 0 0 1px rgba(59,130,246,0.06), inset 0 1px 0 rgba(255,255,255,0.6);
+  --input-focus-border: rgba(59, 130, 246, 0.5);
+  --input-focus-shadow: 0 0 0 3px rgba(37,99,235,0.1), inset 0 1px 0 rgba(255,255,255,0.6);
+
+  /* Bubbles */
+  --bubble-user-bg:         linear-gradient(135deg, #dbeafe, #eff6ff);
+  --bubble-user-border:     rgba(59, 130, 246, 0.25);
+  --bubble-user-shadow:     rgba(37, 99, 235, 0.06);
+  --bubble-user-color:      #1a1d26;
+  --bubble-assistant-bg:    linear-gradient(135deg, #ffffff, #f8fafc);
+  --bubble-assistant-border:rgba(0, 0, 0, 0.06);
+  --bubble-accent:          #2563eb;
+  --bubble-assistant-color: #2a2f3d;
+
+  /* Send button */
+  --send-bg:          linear-gradient(135deg, #4f8ef7, #2563eb);
+  --send-shadow:      0 0 20px rgba(37, 99, 235, 0.25);
+  --send-shadow-hover:0 0 30px rgba(37, 99, 235, 0.4);
+
+  /* Modal */
+  --modal-overlay:     rgba(0, 0, 0, 0.3);
+  --modal-bg:          #ffffff;
+  --modal-border:      rgba(0, 0, 0, 0.10);
+  --modal-shadow:      0 0 60px rgba(0, 0, 0, 0.12);
+  --modal-input-bg:    rgba(0, 0, 0, 0.04);
+  --modal-input-border:rgba(0, 0, 0, 0.10);
+
+  /* Link buttons (sidebar bottom) */
+  --link-btn-bg:          rgba(0, 0, 0, 0.04);
+  --link-btn-border:      rgba(0, 0, 0, 0.08);
+  --link-btn-hover-border:rgba(59, 130, 246, 0.3);
+  --link-btn-hover-color: #1a1d26;
+
+  /* Scrollbar */
+  --scrollbar-thumb:      rgba(59, 130, 246, 0.25);
+  --scrollbar-thumb-hover:rgba(59, 130, 246, 0.45);
+}
+
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS — Dark mode overrides
+═══════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg-void:    #050508;
   --bg-surface: #0c0c12;
-  --bg-elevated: #12121a;
-  --metal-light: #c8cdd6;
-  --metal-mid: #8892a0;
-  --metal-dark: #4a5260;
-  --chrome-shine: #e8edf5;
+  --bg-elevated:#12121a;
+  --chrome-shine:  #e8edf5;
+  --metal-light:   #c8cdd6;
+  --metal-mid:     #8892a0;
+  --metal-dark:    #4a5260;
+  --text-primary:  #e8edf5;
+  --text-secondary:#8892a0;
+  --text-muted:    #4a5260;
   --accent-glow: #6eb5ff;
-  --accent-hot: #4f8ef7;
+  --accent-hot:  #4f8ef7;
   --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-glow: rgba(110, 181, 255, 0.2);
-  --text-primary: #e8edf5;
-  --text-secondary: #8892a0;
-  --text-muted: #4a5260;
+  --border-glow:   rgba(110, 181, 255, 0.2);
+  --sidebar-bg:       rgba(12, 12, 18, 0.85);
+  --sidebar-border-r: rgba(110, 181, 255, 0.15);
+  --sidebar-shadow:   inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --header-border:     rgba(255, 255, 255, 0.05);
+  --header-btn-border: rgba(255, 255, 255, 0.12);
+  --divider-bg: linear-gradient(to right, transparent, rgba(110,181,255,0.2), transparent);
+  --avatar-bg:   linear-gradient(135deg, #1a2035, #0e1525);
+  --avatar-ring: rgba(110, 181, 255, 0.3);
+  --glow-min: 0 0 12px rgba(79,142,247,0.3),  0 0 0 2px rgba(110,181,255,0.2);
+  --glow-max: 0 0 28px rgba(79,142,247,0.65), 0 0 0 2px rgba(110,181,255,0.45);
+  --chip-bg:          rgba(255, 255, 255, 0.03);
+  --chip-border:      rgba(255, 255, 255, 0.07);
+  --chip-hover-border:rgba(110, 181, 255, 0.3);
+  --chip-hover-glow:  0 0 12px rgba(79, 142, 247, 0.1);
+  --chip-hover-color: #c8cdd6;
+  --input-bg:           rgba(255, 255, 255, 0.04);
+  --input-border:       rgba(255, 255, 255, 0.08);
+  --input-shadow:       0 0 0 1px rgba(110,181,255,0.08), inset 0 1px 0 rgba(255,255,255,0.05);
+  --input-focus-border: rgba(110, 181, 255, 0.4);
+  --input-focus-shadow: 0 0 0 3px rgba(79,142,247,0.1), inset 0 1px 0 rgba(255,255,255,0.05);
+  --bubble-user-bg:         linear-gradient(135deg, #1a2035, #151c2e);
+  --bubble-user-border:     rgba(110, 181, 255, 0.2);
+  --bubble-user-shadow:     rgba(79, 142, 247, 0.08);
+  --bubble-user-color:      #e8edf5;
+  --bubble-assistant-bg:    linear-gradient(135deg, #111118, #0e0e16);
+  --bubble-assistant-border:rgba(255, 255, 255, 0.06);
+  --bubble-accent:          #4f8ef7;
+  --bubble-assistant-color: #c8cdd6;
+  --send-shadow:      0 0 20px rgba(79, 142, 247, 0.3);
+  --send-shadow-hover:0 0 30px rgba(79, 142, 247, 0.5);
+  --modal-overlay:     rgba(0, 0, 0, 0.6);
+  --modal-bg:          #12121a;
+  --modal-border:      rgba(110, 181, 255, 0.15);
+  --modal-shadow:      0 0 60px rgba(79, 142, 247, 0.15);
+  --modal-input-bg:    rgba(255, 255, 255, 0.04);
+  --modal-input-border:rgba(255, 255, 255, 0.10);
+  --link-btn-bg:          rgba(255, 255, 255, 0.04);
+  --link-btn-border:      rgba(255, 255, 255, 0.08);
+  --link-btn-hover-border:rgba(110, 181, 255, 0.25);
+  --link-btn-hover-color: #c8cdd6;
+  --scrollbar-thumb:      rgba(110, 181, 255, 0.2);
+  --scrollbar-thumb-hover:rgba(110, 181, 255, 0.4);
 }
 
 /* ── Base ─────────────────────────────────────── */
@@ -26,42 +160,48 @@ body {
   background: var(--bg-void);
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-/* ── Space background ─────────────────────────── */
+/* ── Space background (dark mode only) ────────── */
 .space-bg {
-  background: radial-gradient(ellipse at 40% 50%, #0d1220 0%, #050508 70%);
+  background: var(--bg-void);
   position: relative;
+  transition: background 0.2s ease;
+}
+
+[data-theme="dark"] .space-bg {
+  background: radial-gradient(ellipse at 40% 50%, #0d1220 0%, #050508 70%);
 }
 
 /* Static star dots */
-.space-bg::before {
+[data-theme="dark"] .space-bg::before {
   content: '';
   position: fixed;
   inset: 0;
   background-image:
-    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.45) 0%, transparent 100%),
-    radial-gradient(1px 1px at 71% 11%, rgba(255, 255, 255, 0.35) 0%, transparent 100%),
-    radial-gradient(1px 1px at 87% 63%, rgba(255, 255, 255, 0.40) 0%, transparent 100%),
-    radial-gradient(1px 1px at 33% 79%, rgba(255, 255, 255, 0.30) 0%, transparent 100%),
-    radial-gradient(1px 1px at 54% 41%, rgba(255, 255, 255, 0.45) 0%, transparent 100%),
-    radial-gradient(1px 1px at 91% 32%, rgba(255, 255, 255, 0.35) 0%, transparent 100%),
-    radial-gradient(1px 1px at 7%  87%, rgba(255, 255, 255, 0.40) 0%, transparent 100%),
-    radial-gradient(1px 1px at 62% 92%, rgba(255, 255, 255, 0.25) 0%, transparent 100%),
-    radial-gradient(1px 1px at 44% 6%,  rgba(255, 255, 255, 0.30) 0%, transparent 100%),
-    radial-gradient(1px 1px at 22% 55%, rgba(255, 255, 255, 0.20) 0%, transparent 100%);
+    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.45) 0%, transparent 100%),
+    radial-gradient(1px 1px at 71% 11%, rgba(255,255,255,0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 87% 63%, rgba(255,255,255,0.40) 0%, transparent 100%),
+    radial-gradient(1px 1px at 33% 79%, rgba(255,255,255,0.30) 0%, transparent 100%),
+    radial-gradient(1px 1px at 54% 41%, rgba(255,255,255,0.45) 0%, transparent 100%),
+    radial-gradient(1px 1px at 91% 32%, rgba(255,255,255,0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 7%  87%, rgba(255,255,255,0.40) 0%, transparent 100%),
+    radial-gradient(1px 1px at 62% 92%, rgba(255,255,255,0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 44% 6%,  rgba(255,255,255,0.30) 0%, transparent 100%),
+    radial-gradient(1px 1px at 22% 55%, rgba(255,255,255,0.20) 0%, transparent 100%);
   pointer-events: none;
   z-index: 0;
 }
 
 /* Slow heat-distortion mesh */
-.space-bg::after {
+[data-theme="dark"] .space-bg::after {
   content: '';
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse at 20% 80%, rgba(79, 142, 247, 0.05) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 20%, rgba(110, 181, 255, 0.04) 0%, transparent 55%);
+    radial-gradient(ellipse at 20% 80%, rgba(79,142,247,0.05) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(110,181,255,0.04) 0%, transparent 55%);
   animation: mesh-drift 22s ease-in-out infinite alternate;
   pointer-events: none;
   z-index: 0;
@@ -74,16 +214,8 @@ body {
 }
 
 @keyframes glow-breathe {
-  0%, 100% {
-    box-shadow:
-      0 0 12px rgba(79, 142, 247, 0.3),
-      0 0 0 2px rgba(110, 181, 255, 0.2);
-  }
-  50% {
-    box-shadow:
-      0 0 28px rgba(79, 142, 247, 0.65),
-      0 0 0 2px rgba(110, 181, 255, 0.45);
-  }
+  0%, 100% { box-shadow: var(--glow-min); }
+  50%       { box-shadow: var(--glow-max); }
 }
 
 @keyframes message-appear {
@@ -92,26 +224,13 @@ body {
 }
 
 @keyframes dot-glow {
-  0%, 100% {
-    opacity: 0.3;
-    box-shadow: 0 0 4px rgba(79, 142, 247, 0.3);
-    transform: scale(0.85);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 10px rgba(79, 142, 247, 0.9);
-    transform: scale(1.15);
-  }
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%       { opacity: 1;   transform: scale(1.15); }
 }
 
 /* ── Utility classes ──────────────────────────── */
-.avatar-glow {
-  animation: glow-breathe 3s ease-in-out infinite;
-}
-
-.message-bubble {
-  animation: message-appear 0.2s ease-out;
-}
+.avatar-glow   { animation: glow-breathe 3s ease-in-out infinite; }
+.message-bubble { animation: message-appear 0.2s ease-out; }
 
 .typing-dot {
   width: 6px;
@@ -119,6 +238,7 @@ body {
   border-radius: 50%;
   background: var(--accent-glow);
   animation: dot-glow 1.4s ease-in-out infinite;
+  box-shadow: 0 0 6px var(--accent-glow);
 }
 .typing-dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-dot:nth-child(3) { animation-delay: 0.4s; }
@@ -126,5 +246,5 @@ body {
 /* ── Scrollbar ────────────────────────────────── */
 ::-webkit-scrollbar             { width: 4px; }
 ::-webkit-scrollbar-track       { background: transparent; }
-::-webkit-scrollbar-thumb       { background: rgba(110, 181, 255, 0.2); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(110, 181, 255, 0.4); }
+::-webkit-scrollbar-thumb       { background: var(--scrollbar-thumb); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }

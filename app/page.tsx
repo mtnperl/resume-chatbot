@@ -41,16 +41,16 @@ const MessageBubble = memo(function MessageBubble({
         style={
           isUser
             ? {
-                background: "linear-gradient(135deg, #1a2035, #151c2e)",
-                border: "1px solid rgba(110,181,255,0.2)",
-                boxShadow: "0 0 20px rgba(79,142,247,0.08)",
-                color: "var(--chrome-shine)",
+                background: "var(--bubble-user-bg)",
+                border: "1px solid var(--bubble-user-border)",
+                boxShadow: "0 0 20px var(--bubble-user-shadow)",
+                color: "var(--bubble-user-color)",
               }
             : {
-                background: "linear-gradient(135deg, #111118, #0e0e16)",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderLeft: "2px solid #4f8ef7",
-                color: "var(--metal-light)",
+                background: "var(--bubble-assistant-bg)",
+                border: "1px solid var(--bubble-assistant-border)",
+                borderLeft: "2px solid var(--bubble-accent)",
+                color: "var(--bubble-assistant-color)",
               }
         }
       >
@@ -103,8 +103,8 @@ function ContactModal({ onClose }: { onClose: () => void }) {
   const inputStyle = {
     width: "100%",
     borderRadius: 10,
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.10)",
+    background: "var(--modal-input-bg)",
+    border: "1px solid var(--modal-input-border)",
     padding: "10px 14px",
     fontSize: 14,
     color: "var(--text-primary)",
@@ -114,15 +114,15 @@ function ContactModal({ onClose }: { onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+      style={{ background: "var(--modal-overlay)", backdropFilter: "blur(6px)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         className="w-full max-w-md rounded-t-2xl p-6 shadow-2xl sm:rounded-2xl"
         style={{
-          background: "var(--bg-elevated)",
-          border: "1px solid rgba(110,181,255,0.15)",
-          boxShadow: "0 0 60px rgba(79,142,247,0.15)",
+          background: "var(--modal-bg)",
+          border: "1px solid var(--modal-border)",
+          boxShadow: "var(--modal-shadow)",
         }}
       >
         <div className="mb-5 flex items-center justify-between">
@@ -139,47 +139,22 @@ function ContactModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="space-y-3">
-          <input
-            type="text"
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="email"
-            placeholder="Your email (optional)"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-          />
-          <textarea
-            placeholder="Message (optional)"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={3}
-            style={{ ...inputStyle, resize: "none" }}
-          />
+          <input type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
+          <input type="email" placeholder="Your email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+          <textarea placeholder="Message (optional)" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} style={{ ...inputStyle, resize: "none" }} />
         </div>
 
         <div className="mt-5 flex flex-col gap-2">
           <button
             onClick={handleSend}
             className="w-full rounded-full py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90"
-            style={{
-              background: "linear-gradient(135deg, #4f8ef7, #2563eb)",
-              boxShadow: "0 0 20px rgba(79,142,247,0.35)",
-            }}
+            style={{ background: "var(--send-bg)", boxShadow: "var(--send-shadow)" }}
           >
             Open in email client
           </button>
           <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
             Or email directly:{" "}
-            <a
-              href="mailto:perlmathan@gmail.com"
-              className="underline transition-opacity hover:opacity-70"
-              style={{ color: "var(--accent-glow)" }}
-            >
+            <a href="mailto:perlmathan@gmail.com" className="underline transition-opacity hover:opacity-70" style={{ color: "var(--accent-glow)" }}>
               perlmathan@gmail.com
             </a>
           </p>
@@ -205,10 +180,10 @@ function Sidebar({
     <aside
       className="hidden md:flex w-80 shrink-0 flex-col relative z-10"
       style={{
-        background: "rgba(12,12,18,0.85)",
+        background: "var(--sidebar-bg)",
         backdropFilter: "blur(20px)",
-        borderRight: "1px solid rgba(110,181,255,0.15)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+        borderRight: "1px solid var(--sidebar-border-r)",
+        boxShadow: "var(--sidebar-shadow)",
       }}
     >
       {/* Identity card */}
@@ -217,8 +192,8 @@ function Sidebar({
         <div
           className="avatar-glow mb-5 flex h-20 w-20 items-center justify-center rounded-full text-xl font-bold"
           style={{
-            background: "linear-gradient(135deg, #1a2035, #0e1525)",
-            border: "2px solid rgba(110,181,255,0.3)",
+            background: "var(--avatar-bg)",
+            border: "2px solid var(--avatar-ring)",
             color: "var(--chrome-shine)",
             letterSpacing: "-0.5px",
           }}
@@ -227,43 +202,25 @@ function Sidebar({
         </div>
 
         {/* Name */}
-        <h1
-          className="text-center text-xl font-semibold"
-          style={{ color: "var(--chrome-shine)", letterSpacing: "-0.3px" }}
-        >
+        <h1 className="text-center text-xl font-semibold" style={{ color: "var(--chrome-shine)", letterSpacing: "-0.3px" }}>
           Mathan Perl
         </h1>
 
         {/* Title */}
-        <p
-          className="mt-1 text-center text-sm"
-          style={{ color: "var(--metal-mid)" }}
-        >
+        <p className="mt-1 text-center text-sm" style={{ color: "var(--metal-mid)" }}>
           Senior Partnerships Manager
         </p>
-        <p
-          className="text-center text-xs"
-          style={{ color: "var(--metal-dark)" }}
-        >
+        <p className="text-center text-xs" style={{ color: "var(--metal-dark)" }}>
           Unity · New York
         </p>
 
         {/* Divider */}
-        <div
-          className="mt-5 w-full h-px"
-          style={{
-            background:
-              "linear-gradient(to right, transparent, rgba(110,181,255,0.2), transparent)",
-          }}
-        />
+        <div className="mt-5 w-full h-px" style={{ background: "var(--divider-bg)" }} />
       </div>
 
       {/* Suggested questions */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        <p
-          className="mb-3 px-2 text-xs font-medium uppercase tracking-widest"
-          style={{ color: "var(--metal-dark)" }}
-        >
+        <p className="mb-3 px-2 text-xs font-medium uppercase tracking-widest" style={{ color: "var(--metal-dark)" }}>
           Ask me
         </p>
         {!atMessageLimit &&
@@ -274,24 +231,21 @@ function Sidebar({
               disabled={isLoading}
               className="mb-2 w-full rounded-xl px-3 py-2.5 text-left text-xs transition-all disabled:opacity-40"
               style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.07)",
+                background: "var(--chip-bg)",
+                border: "1px solid var(--chip-border)",
                 color: "var(--metal-mid)",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "rgba(110,181,255,0.3)";
-                (e.currentTarget as HTMLButtonElement).style.color =
-                  "var(--metal-light)";
-                (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                  "0 0 12px rgba(79,142,247,0.1)";
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.borderColor = "var(--chip-hover-border)";
+                el.style.color = "var(--chip-hover-color)";
+                el.style.boxShadow = "var(--chip-hover-glow)";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "rgba(255,255,255,0.07)";
-                (e.currentTarget as HTMLButtonElement).style.color =
-                  "var(--metal-mid)";
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.borderColor = "var(--chip-border)";
+                el.style.color = "var(--metal-mid)";
+                el.style.boxShadow = "none";
               }}
             >
               {q}
@@ -300,75 +254,74 @@ function Sidebar({
       </div>
 
       {/* Bottom action buttons */}
-      <div
-        className="px-4 pb-6 pt-3"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
-      >
+      <div className="px-4 pb-6 pt-3" style={{ borderTop: "1px solid var(--header-border)" }}>
         <button
           onClick={onContact}
-          className="w-full rounded-xl py-2.5 text-sm font-medium transition-all hover:opacity-90"
-          style={{
-            background: "linear-gradient(135deg, #4f8ef7, #2563eb)",
-            boxShadow: "0 0 20px rgba(79,142,247,0.25)",
-            color: "#fff",
-          }}
+          className="w-full rounded-xl py-2.5 text-sm font-medium text-white transition-all hover:opacity-90"
+          style={{ background: "var(--send-bg)", boxShadow: "var(--send-shadow)" }}
         >
           Get in touch
         </button>
         <div className="mt-2 flex gap-2">
-          <a
-            href="https://linkedin.com/in/mathanperl"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs transition-all"
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              color: "var(--metal-mid)",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                "rgba(110,181,255,0.25)";
-              (e.currentTarget as HTMLAnchorElement).style.color =
-                "var(--metal-light)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                "rgba(255,255,255,0.08)";
-              (e.currentTarget as HTMLAnchorElement).style.color =
-                "var(--metal-mid)";
-            }}
-          >
-            LinkedIn
-          </a>
-          <a
-            href="/resume.pdf"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs transition-all"
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              color: "var(--metal-mid)",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                "rgba(110,181,255,0.25)";
-              (e.currentTarget as HTMLAnchorElement).style.color =
-                "var(--metal-light)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                "rgba(255,255,255,0.08)";
-              (e.currentTarget as HTMLAnchorElement).style.color =
-                "var(--metal-mid)";
-            }}
-          >
-            Resume
-          </a>
+          {[
+            { label: "LinkedIn", href: "https://www.linkedin.com/in/mathan-perl-9b442076/" },
+            { label: "Resume",   href: "/resume.pdf" },
+          ].map(({ label, href }) => (
+            <a
+              key={label}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-1 items-center justify-center rounded-xl py-2 text-xs transition-all"
+              style={{
+                background: "var(--link-btn-bg)",
+                border: "1px solid var(--link-btn-border)",
+                color: "var(--metal-mid)",
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLAnchorElement;
+                el.style.borderColor = "var(--link-btn-hover-border)";
+                el.style.color = "var(--link-btn-hover-color)";
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLAnchorElement;
+                el.style.borderColor = "var(--link-btn-border)";
+                el.style.color = "var(--metal-mid)";
+              }}
+            >
+              {label}
+            </a>
+          ))}
         </div>
       </div>
     </aside>
+  );
+}
+
+// ── Theme toggle button ───────────────────────────────────────────────────────
+function ThemeToggle({ theme, onToggle }: { theme: "light" | "dark"; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-label="Toggle theme"
+      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all"
+      style={{
+        border: "1px solid var(--header-btn-border)",
+        color: "var(--metal-mid)",
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget as HTMLButtonElement;
+        el.style.borderColor = "var(--chip-hover-border)";
+        el.style.color = "var(--chrome-shine)";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLButtonElement;
+        el.style.borderColor = "var(--header-btn-border)";
+        el.style.color = "var(--metal-mid)";
+      }}
+    >
+      {theme === "dark" ? "☀ Light" : "🌙 Dark"}
+    </button>
   );
 }
 
@@ -379,7 +332,20 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [showContact, setShowContact] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load persisted theme (after hydration to avoid SSR mismatch)
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") as "light" | "dark" | null;
+    if (saved) setTheme(saved);
+  }, []);
+
+  // Apply theme to <html> so CSS vars cascade everywhere
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -397,7 +363,6 @@ export default function Home() {
         role: "user",
         content: text.trim(),
       };
-
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -417,10 +382,7 @@ export default function Home() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            messages: updatedMessages.map(({ role, content }) => ({
-              role,
-              content,
-            })),
+            messages: updatedMessages.map(({ role, content }) => ({ role, content })),
           }),
         });
 
@@ -429,7 +391,6 @@ export default function Home() {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -478,42 +439,36 @@ export default function Home() {
       <div className="relative z-10 flex flex-1 flex-col min-w-0">
         {/* Top bar */}
         <header
-          className="flex shrink-0 items-center justify-between px-5 py-3"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+          className="flex shrink-0 items-center gap-2 px-5 py-3"
+          style={{ borderBottom: "1px solid var(--header-border)" }}
         >
           {/* Mobile: show name (hidden on desktop where sidebar has it) */}
-          <span
-            className="text-sm font-medium md:invisible"
-            style={{ color: "var(--metal-mid)" }}
-          >
+          <span className="text-sm font-medium md:invisible" style={{ color: "var(--metal-mid)" }}>
             Chat with Mathan Perl
           </span>
 
-          <button
-            onClick={() => setShowContact(true)}
-            className="ml-auto rounded-full px-4 py-1.5 text-sm font-medium transition-all"
-            style={{
-              border: "1px solid rgba(255,255,255,0.12)",
-              color: "var(--metal-mid)",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor =
-                "rgba(110,181,255,0.4)";
-              (e.currentTarget as HTMLButtonElement).style.color =
-                "var(--chrome-shine)";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                "0 0 12px rgba(110,181,255,0.15)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor =
-                "rgba(255,255,255,0.12)";
-              (e.currentTarget as HTMLButtonElement).style.color =
-                "var(--metal-mid)";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
-            }}
-          >
-            Get in touch
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle theme={theme} onToggle={() => setTheme(theme === "light" ? "dark" : "light")} />
+            <button
+              onClick={() => setShowContact(true)}
+              className="rounded-full px-4 py-1.5 text-sm font-medium transition-all"
+              style={{ border: "1px solid var(--header-btn-border)", color: "var(--metal-mid)" }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.borderColor = "var(--chip-hover-border)";
+                el.style.color = "var(--chrome-shine)";
+                el.style.boxShadow = "0 0 12px var(--chip-hover-glow)";
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.borderColor = "var(--header-btn-border)";
+                el.style.color = "var(--metal-mid)";
+                el.style.boxShadow = "none";
+              }}
+            >
+              Get in touch
+            </button>
+          </div>
         </header>
 
         {/* Messages */}
@@ -528,10 +483,7 @@ export default function Home() {
             ))}
 
             {atMessageLimit && (
-              <p
-                className="text-center text-xs"
-                style={{ color: "var(--text-muted)" }}
-              >
+              <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
                 Conversation limit reached. Refresh to start a new chat.
               </p>
             )}
@@ -553,8 +505,8 @@ export default function Home() {
                     disabled={isLoading}
                     className="rounded-full px-3 py-1 text-xs transition-all disabled:opacity-40"
                     style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "var(--chip-bg)",
+                      border: "1px solid var(--chip-border)",
                       color: "var(--metal-mid)",
                     }}
                   >
@@ -578,44 +530,35 @@ export default function Home() {
                 disabled={isLoading || atMessageLimit}
                 className="flex-1 text-sm transition-all disabled:opacity-50"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "var(--input-bg)",
+                  border: "1px solid var(--input-border)",
                   borderRadius: 16,
                   backdropFilter: "blur(10px)",
-                  boxShadow:
-                    "0 0 0 1px rgba(110,181,255,0.08), inset 0 1px 0 rgba(255,255,255,0.05)",
+                  boxShadow: "var(--input-shadow)",
                   padding: "10px 18px",
                   color: "var(--text-primary)",
                   outline: "none",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(110,181,255,0.4)";
-                  e.currentTarget.style.boxShadow =
-                    "0 0 0 3px rgba(79,142,247,0.1), inset 0 1px 0 rgba(255,255,255,0.05)";
+                  e.currentTarget.style.borderColor = "var(--input-focus-border)";
+                  e.currentTarget.style.boxShadow = "var(--input-focus-shadow)";
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.boxShadow =
-                    "0 0 0 1px rgba(110,181,255,0.08), inset 0 1px 0 rgba(255,255,255,0.05)";
+                  e.currentTarget.style.borderColor = "var(--input-border)";
+                  e.currentTarget.style.boxShadow = "var(--input-shadow)";
                 }}
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim() || atMessageLimit}
                 className="shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                style={{
-                  background: "linear-gradient(135deg, #4f8ef7, #2563eb)",
-                  boxShadow: "0 0 20px rgba(79,142,247,0.3)",
-                }}
+                style={{ background: "var(--send-bg)", boxShadow: "var(--send-shadow)" }}
                 onMouseEnter={(e) => {
-                  if (!(e.currentTarget as HTMLButtonElement).disabled) {
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                      "0 0 30px rgba(79,142,247,0.5)";
-                  }
+                  if (!(e.currentTarget as HTMLButtonElement).disabled)
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = "var(--send-shadow-hover)";
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                    "0 0 20px rgba(79,142,247,0.3)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "var(--send-shadow)";
                 }}
               >
                 Send
