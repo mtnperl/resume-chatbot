@@ -49,7 +49,6 @@ const MessageBubble = memo(function MessageBubble({
             : {
                 background: "var(--bubble-assistant-bg)",
                 border: "1px solid var(--bubble-assistant-border)",
-                borderLeft: "2px solid var(--bubble-accent)",
                 color: "var(--bubble-assistant-color)",
               }
         }
