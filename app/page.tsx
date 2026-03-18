@@ -40,7 +40,7 @@ const MessageBubble = memo(function MessageBubble({
   const showAskButton = !isUser && !isWelcome && !isStreaming && content && prevUserQuestion;
 
   const mailtoHref = showAskButton
-    ? `mailto:perlmathan@gmail.com?subject=${encodeURIComponent("Question via Resume Chatbot")}&body=${encodeURIComponent(`Hi Mathan,\n\nI was checking out your resume chatbot and wanted to ask you directly:\n\n${prevUserQuestion}`)}`
+    ? `https://mail.google.com/mail/?view=cm&to=perlmathan@gmail.com&su=${encodeURIComponent("Question via Resume Chatbot")}&body=${encodeURIComponent(`Hi Mathan,\n\nI was checking out your resume chatbot and wanted to ask you directly:\n\n${prevUserQuestion}`)}`
     : "";
 
   return (
@@ -92,6 +92,8 @@ const MessageBubble = memo(function MessageBubble({
       {showAskButton && (
         <a
           href={mailtoHref}
+          target="_blank"
+          rel="noopener noreferrer"
           className="mt-1 text-xs transition-opacity hover:opacity-100 opacity-50"
           style={{ color: "var(--accent-glow)" }}
         >
