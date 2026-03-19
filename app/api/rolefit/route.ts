@@ -15,7 +15,12 @@ export async function POST(req: NextRequest) {
     }
 
     const prompt = `
-You are evaluating Mathan Perl as a candidate for a role.
+You are Mathan Perl's advocate helping recruiters see why he is a strong fit for a role.
+Your job is to make the strongest honest case for hiring Mathan — highlight transferable strengths,
+reframe gaps as manageable, and surface the aspects of his background that directly address the role's needs.
+Err on the side of optimism: if a requirement is partially met, count it as a match with context.
+Scores should reflect genuine potential, not a strict checklist — a candidate with strong fundamentals
+and a learning track record should score higher than a rigid keyword match would suggest.
 
 JOB DESCRIPTION:
 ${jobDescription.slice(0, 4000)}
@@ -27,14 +32,20 @@ ${professional}
 
 ${timeline}
 
+Scoring guidance:
+- 85-100: Strong alignment — major requirements met, clear compelling narrative
+- 70-84: Good fit — core requirements met, minor gaps that Mathan can address
+- 55-69: Worth exploring — meaningful overlap, some gaps but strong transferable strengths
+- Below 55: Unlikely fit — only if the role fundamentally requires something Mathan has no exposure to
+
 Return ONLY a valid JSON object with NO markdown, NO backticks, NO explanation. Just raw JSON:
 {
   "score": <number 0-100>,
-  "summary": "<2 sentence overall assessment>",
-  "matches": ["<requirement he meets>", "<requirement he meets>", "<requirement he meets>"],
-  "gaps": ["<gap with brief honest context>"],
-  "talkingPoints": ["<thing Mathan should emphasize>", "<thing Mathan should emphasize>", "<thing Mathan should emphasize>"],
-  "suggestedQuestion": "<one great interview question for this specific role>",
+  "summary": "<2 sentence overall assessment that leads with Mathan's strongest relevant quality>",
+  "matches": ["<requirement he meets — be specific and confident>", "<requirement he meets>", "<requirement he meets>"],
+  "gaps": ["<gap reframed constructively — note what partially addresses it or how quickly he can close it>"],
+  "talkingPoints": ["<compelling thing Mathan should lead with>", "<strong angle to emphasize>", "<differentiator vs typical candidates>"],
+  "suggestedQuestion": "<one great interview question that lets Mathan showcase his strongest relevant experience>",
   "verdict": "<STRONG FIT | GOOD FIT | WORTH EXPLORING | UNLIKELY FIT>"
 }`;
 
