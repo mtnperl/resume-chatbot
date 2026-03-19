@@ -8,10 +8,11 @@ import jsPDF from "jspdf";
 import RoleFitAnalyzer from "@/components/RoleFitAnalyzer";
 import Timeline from "@/components/Timeline";
 import PersonaSelector from "@/components/PersonaSelector";
+import MobileDrawer from "@/components/MobileDrawer";
 import { personaReplies } from "@/lib/prompts";
 
 type Message = Anthropic.MessageParam & { id: string };
-type Persona = "recruiter" | "friend" | "luke" | "chris" | null;
+type Persona = "recruiter" | "friend" | "michael" | "chris" | null;
 
 const WELCOME_MESSAGE: Message = {
   id: "welcome",
@@ -354,6 +355,7 @@ export default function Home() {
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const [shareToast, setShareToast] = useState<"idle" | "copying" | "copied">("idle");
   const [persona, setPersona] = useState<Persona>(null);
+  const [showDrawer, setShowDrawer] = useState(false);
   const sessionId = useRef<string>(crypto.randomUUID());
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -635,9 +637,32 @@ export default function Home() {
           className="flex shrink-0 items-center gap-2 px-5 py-3"
           style={{ borderBottom: "1px solid var(--header-border)" }}
         >
-          {/* Mobile: show name (hidden on desktop where sidebar has it) */}
-          <span className="text-sm font-medium md:invisible" style={{ color: "var(--metal-mid)" }}>
-            Chat with Mathan Perl
+          {/* Mobile: hamburger to open drawer */}
+          <button
+            className="flex items-center justify-center md:hidden"
+            onClick={() => setShowDrawer(true)}
+            aria-label="Open menu"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              border: "1px solid var(--header-btn-border)",
+              color: "var(--metal-mid)",
+              background: "none",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+              <rect width="16" height="2" rx="1" fill="currentColor" />
+              <rect y="5" width="16" height="2" rx="1" fill="currentColor" />
+              <rect y="10" width="16" height="2" rx="1" fill="currentColor" />
+            </svg>
+          </button>
+
+          {/* Mobile: centered name */}
+          <span className="text-sm font-medium md:hidden" style={{ color: "var(--metal-mid)" }}>
+            Mathan Perl
           </span>
 
           <div className="ml-auto flex items-center gap-2">
@@ -685,7 +710,7 @@ export default function Home() {
             )}
             <button
               onClick={() => setShowContact(true)}
-              className="rounded-full px-4 py-1.5 text-sm font-medium transition-all"
+              className="hidden md:flex rounded-full px-4 py-1.5 text-sm font-medium transition-all"
               style={{ border: "1px solid var(--header-btn-border)", color: "var(--metal-mid)" }}
               onMouseEnter={(e) => {
                 const el = e.currentTarget as HTMLButtonElement;
@@ -706,7 +731,7 @@ export default function Home() {
         </header>
 
         {/* Messages */}
-        <main className="flex flex-1 flex-col items-center overflow-y-auto px-4 py-6">
+        <main className="flex flex-1 flex-col items-center overflow-y-auto px-3 py-4 md:px-4 md:py-6">
           <div className="w-full max-w-2xl">
           {!persona ? (
             <PersonaSelector onSelect={handlePersonaSelect} />
@@ -776,29 +801,11 @@ export default function Home() {
         </main>
 
         {/* Input footer */}
-        <footer className="shrink-0 px-4 pb-5 pt-3">
-          <div className="mx-auto w-full max-w-2xl space-y-2">
-            {/* Mobile chips (sidebar hidden on mobile) */}
-            {!atMessageLimit && (
-              <div className="flex flex-wrap gap-1.5 md:hidden">
-                {SUGGESTED_QUESTIONS.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => handleSend(q)}
-                    disabled={isLoading}
-                    className="rounded-full px-3 py-1 text-xs transition-all disabled:opacity-40"
-                    style={{
-                      background: "var(--chip-bg)",
-                      border: "1px solid var(--chip-border)",
-                      color: "var(--metal-mid)",
-                    }}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            )}
-
+        <footer
+          className="shrink-0 px-4 pt-3"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)" }}
+        >
+          <div className="mx-auto w-full max-w-2xl">
             {/* Input form */}
             <form onSubmit={handleFormSubmit} className="flex gap-2">
               <input
@@ -821,6 +828,7 @@ export default function Home() {
                   backdropFilter: "blur(10px)",
                   boxShadow: "var(--input-shadow)",
                   padding: "10px 18px",
+                  fontSize: 16,
                   color: "var(--text-primary)",
                   outline: "none",
                 }}
@@ -854,6 +862,16 @@ export default function Home() {
       </div>
 
       {showContact && <ContactModal onClose={() => setShowContact(false)} />}
+
+      <MobileDrawer
+        open={showDrawer}
+        onClose={() => setShowDrawer(false)}
+        onChipClick={handleSend}
+        onContact={() => setShowContact(true)}
+        isLoading={isLoading}
+        atMessageLimit={atMessageLimit}
+        questions={SUGGESTED_QUESTIONS}
+      />
     </div>
   );
 }
