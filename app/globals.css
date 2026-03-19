@@ -5,87 +5,87 @@
 ═══════════════════════════════════════════════ */
 :root {
   /* Surfaces */
-  --bg-void:    #f4f6f9;
+  --bg-void:    #ffffff;
   --bg-surface: #ffffff;
-  --bg-elevated:#f0f2f6;
+  --bg-elevated:#f9f9f9;
 
   /* Text */
-  --chrome-shine:  #0d0f14;
-  --metal-light:   #1a1d26;
-  --metal-mid:     #5a6375;
-  --metal-dark:    #9aa0af;
-  --text-primary:  #1a1d26;
-  --text-secondary:#5a6375;
-  --text-muted:    #9aa0af;
+  --chrome-shine:  #0d0d0d;
+  --metal-light:   #0d0d0d;
+  --metal-mid:     #555555;
+  --metal-dark:    #999999;
+  --text-primary:  #0d0d0d;
+  --text-secondary:#666666;
+  --text-muted:    #999999;
 
   /* Accent */
   --accent-glow: #3b82f6;
   --accent-hot:  #2563eb;
 
   /* Borders */
-  --border-subtle: rgba(0, 0, 0, 0.07);
-  --border-glow:   rgba(59, 130, 246, 0.25);
+  --border-subtle: #e5e5e5;
+  --border-glow:   #e5e5e5;
 
   /* Sidebar */
-  --sidebar-bg:       rgba(255, 255, 255, 0.94);
-  --sidebar-border-r: rgba(0, 0, 0, 0.08);
-  --sidebar-shadow:   inset 0 1px 0 rgba(0, 0, 0, 0.04);
+  --sidebar-bg:       #f9f9f9;
+  --sidebar-border-r: #e5e5e5;
+  --sidebar-shadow:   none;
 
   /* Header */
-  --header-border:     rgba(0, 0, 0, 0.07);
-  --header-btn-border: rgba(0, 0, 0, 0.15);
+  --header-border:     #e5e5e5;
+  --header-btn-border: #d9d9d9;
 
   /* Divider */
-  --divider-bg: linear-gradient(to right, transparent, rgba(0,0,0,0.1), transparent);
+  --divider-bg: linear-gradient(to right, transparent, #e5e5e5, transparent);
 
   /* Avatar */
-  --avatar-bg:  linear-gradient(135deg, #dbeafe, #eff6ff);
-  --avatar-ring: rgba(59, 130, 246, 0.35);
-  --glow-min: 0 0 12px rgba(37, 99, 235, 0.2),  0 0 0 2px rgba(59, 130, 246, 0.2);
-  --glow-max: 0 0 24px rgba(37, 99, 235, 0.45), 0 0 0 2px rgba(59, 130, 246, 0.4);
+  --avatar-bg:  #f4f4f4;
+  --avatar-ring: transparent;
+  --glow-min: none;
+  --glow-max: none;
 
   /* Chips */
-  --chip-bg:          rgba(0, 0, 0, 0.04);
-  --chip-border:      rgba(0, 0, 0, 0.08);
-  --chip-hover-border:rgba(59, 130, 246, 0.35);
-  --chip-hover-glow:  0 0 10px rgba(37, 99, 235, 0.07);
-  --chip-hover-color: #1a1d26;
+  --chip-bg:          #f4f4f4;
+  --chip-border:      #e5e5e5;
+  --chip-hover-border:#aaaaaa;
+  --chip-hover-glow:  none;
+  --chip-hover-color: #0d0d0d;
 
   /* Input */
-  --input-bg:           rgba(0, 0, 0, 0.04);
-  --input-border:       rgba(0, 0, 0, 0.10);
-  --input-shadow:       0 0 0 1px rgba(59,130,246,0.06), inset 0 1px 0 rgba(255,255,255,0.6);
-  --input-focus-border: rgba(59, 130, 246, 0.5);
-  --input-focus-shadow: 0 0 0 3px rgba(37,99,235,0.1), inset 0 1px 0 rgba(255,255,255,0.6);
+  --input-bg:           #ffffff;
+  --input-border:       #d9d9d9;
+  --input-shadow:       0 1px 4px rgba(0,0,0,0.06);
+  --input-focus-border: #aaaaaa;
+  --input-focus-shadow: 0 1px 6px rgba(0,0,0,0.10);
 
   /* Bubbles */
-  --bubble-user-bg:         linear-gradient(135deg, #dbeafe, #eff6ff);
-  --bubble-user-border:     rgba(59, 130, 246, 0.25);
-  --bubble-user-shadow:     rgba(37, 99, 235, 0.06);
-  --bubble-user-color:      #1a1d26;
-  --bubble-assistant-bg:    linear-gradient(135deg, #ffffff, #f8fafc);
-  --bubble-assistant-border:rgba(0, 0, 0, 0.06);
-  --bubble-accent:          #2563eb;
-  --bubble-assistant-color: #2a2f3d;
+  --bubble-user-bg:         #f4f4f4;
+  --bubble-user-border:     #e5e5e5;
+  --bubble-user-shadow:     none;
+  --bubble-user-color:      #0d0d0d;
+  --bubble-assistant-bg:    #f7f7f8;
+  --bubble-assistant-border:#e5e5e5;
+  --bubble-accent:          #111111;
+  --bubble-assistant-color: #0d0d0d;
 
   /* Send button */
-  --send-bg:          linear-gradient(135deg, #4f8ef7, #2563eb);
-  --send-shadow:      0 0 20px rgba(37, 99, 235, 0.25);
-  --send-shadow-hover:0 0 30px rgba(37, 99, 235, 0.4);
+  --send-bg:          #111111;
+  --send-shadow:      none;
+  --send-shadow-hover:0 2px 8px rgba(0,0,0,0.2);
 
   /* Modal */
-  --modal-overlay:     rgba(0, 0, 0, 0.3);
+  --modal-overlay:     rgba(0, 0, 0, 0.25);
   --modal-bg:          #ffffff;
-  --modal-border:      rgba(0, 0, 0, 0.10);
-  --modal-shadow:      0 0 60px rgba(0, 0, 0, 0.12);
-  --modal-input-bg:    rgba(0, 0, 0, 0.04);
-  --modal-input-border:rgba(0, 0, 0, 0.10);
+  --modal-border:      #e5e5e5;
+  --modal-shadow:      0 4px 32px rgba(0, 0, 0, 0.10);
+  --modal-input-bg:    #f4f4f4;
+  --modal-input-border:#e5e5e5;
 
   /* Link buttons (sidebar bottom) */
-  --link-btn-bg:          rgba(0, 0, 0, 0.04);
-  --link-btn-border:      rgba(0, 0, 0, 0.08);
-  --link-btn-hover-border:rgba(59, 130, 246, 0.3);
-  --link-btn-hover-color: #1a1d26;
+  --link-btn-bg:          #f4f4f4;
+  --link-btn-border:      #e5e5e5;
+  --link-btn-hover-border:#aaaaaa;
+  --link-btn-hover-color: #0d0d0d;
 
   /* Scrollbar */
   --scrollbar-thumb:      rgba(59, 130, 246, 0.25);
@@ -229,7 +229,7 @@ body {
 }
 
 /* ── Utility classes ──────────────────────────── */
-.avatar-glow   { animation: glow-breathe 3s ease-in-out infinite; }
+.avatar-glow   { box-shadow: none; border: none; }
 .message-bubble { animation: message-appear 0.2s ease-out; }
 
 .typing-dot {

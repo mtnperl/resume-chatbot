@@ -14,7 +14,7 @@ const WELCOME_MESSAGE: Message = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi! I'm here to answer questions about Mathan's background. Ask me anything about his experience, skills, or career history.",
+    "Ask me anything about Mathan — his career, how he operates, what drives him, or what makes him different.",
 };
 
 const SUGGESTED_QUESTIONS = [
@@ -208,10 +208,7 @@ function Sidebar({
       {/* Identity card */}
       <div className="flex flex-col items-center px-6 pt-10 pb-6">
         {/* Avatar with breathing glow ring */}
-        <div
-          className="avatar-glow mb-5 h-20 w-20 rounded-full overflow-hidden"
-          style={{ border: "2px solid var(--avatar-ring)" }}
-        >
+        <div className="mb-5 h-20 w-20 rounded-full overflow-hidden">
           <img
             src="/profile_mathan.jpg"
             alt="Mathan Perl"
