@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.1.0] - 2026-03-18
+
+### Added
+- **Role Fit Analyzer** — "◎ Role Fit" button in the header opens a modal where recruiters paste a job description; Claude Sonnet analyzes Mathan's fit and returns a 0-100 score, verdict (STRONG FIT / GOOD FIT / WORTH EXPLORING / UNLIKELY FIT), matched requirements, gaps with context, talking points, and a suggested interview question
+- **Visual Timeline** — "◈ Timeline" button opens an interactive career timeline modal; clicking any node expands a summary with tags and an "Ask about this →" button that pre-fills the chat with a suggested question
+- **`app/api/rolefit/route.ts`** — POST handler using Claude Sonnet 4.6; composes prompt from `data/character.ts`, `data/professional.ts`, `data/timeline.ts`
+- **`components/RoleFitAnalyzer.tsx`** — modal with textarea, score display, verdict badge, matches/gaps/talking-points sections, suggested interview question, and "Analyze Another Role" reset
+- **`components/Timeline.tsx`** — modal timeline with era-colored nodes (Military/Intelligence/Education/Tech), expand-on-click detail cards with tags and prompt launch
+- **`data/character.ts`**, **`data/professional.ts`**, **`data/timeline.ts`** — Mathan's character story, professional background, and timeline content as TypeScript string exports
+- **`data/timelineData.ts`** — typed `TimelineNode[]` array with 6 career nodes, each with era, summary, tags, and a suggested chat prompt
+
+### Fixed
+- **Redis lazy initialization** — `lib/kv.ts` now defers `new Redis()` to the first actual call instead of module load time, preventing build failures in environments without Redis env vars set
+
 ## [0.2.0.0] - 2026-03-18
 
 ### Added
