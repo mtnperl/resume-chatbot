@@ -2,208 +2,311 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
 import { Suspense } from "react";
 
-type AnalyticsData = {
-  total: number;
-  avgMessages: number;
-  topQuestions: { question: string; count: number }[];
-  dailyTraffic: { date: string; count: number }[];
-  recentQuestions: { question: string; timestamp: number; messageCount: number }[];
+type SessionMessage = { role: string; content: string; timestamp: number };
+type Session = {
+  sessionId: string;
+  persona: string;
+  startedAt: number;
+  lastActiveAt?: number;
+  referrer: string | null;
+  userAgent: string | null;
+  messages: SessionMessage[];
+  active: boolean;
+};
+
+type DashboardData = {
+  totalSessions: number;
+  sessions: Session[];
+  personaStats: {
+    recruiter: number;
+    friend: number;
+    luke: number;
+    chris: number;
+  };
+  totalMessages: number;
+  recentQuestions: string[];
 };
 
 function DashboardContent() {
-  const params = useSearchParams();
-  const key = params.get("key") ?? "";
-  const [data, setData] = useState<AnalyticsData | null>(null);
+  const searchParams = useSearchParams();
+  const key = searchParams.get("key") ?? "";
+  const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    if (!key) {
-      setError("Missing ?key= parameter");
-      setLoading(false);
-      return;
-    }
+    if (!key) return;
     fetch(`/api/analytics?key=${encodeURIComponent(key)}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Unauthorized");
-        return r.json();
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) setError(d.error);
+        else setData(d);
       })
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .catch(() => setError("Failed to load analytics"));
   }, [key]);
 
-  const labelStyle = { color: "var(--metal-mid)", fontSize: 11 };
-  const cardStyle = {
-    background: "var(--bg-surface)",
-    border: "1px solid var(--border-subtle)",
-    borderRadius: 16,
-    padding: "20px 24px",
-  };
-
-  if (loading) {
+  if (!key) {
     return (
-      <div className="flex h-screen items-center justify-center" style={{ color: "var(--metal-mid)" }}>
-        Loading...
+      <div style={{ padding: 40, fontFamily: "monospace", color: "#555" }}>
+        Missing ?key= param
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-sm" style={{ color: "var(--metal-mid)" }}>
-          {error === "Unauthorized"
-            ? "Access denied. Check your key."
-            : error}
-        </p>
+      <div style={{ padding: 40, fontFamily: "monospace", color: "#c00" }}>
+        {error}
       </div>
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div style={{ padding: 40, fontFamily: "monospace", color: "#555" }}>
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div
-      className="min-h-screen px-6 py-10"
-      style={{ background: "var(--bg-void)", color: "var(--text-primary)" }}
+      style={{
+        minHeight: "100vh",
+        background: "#f5f5f5",
+        fontFamily: "'Inter', sans-serif",
+        padding: "32px 24px",
+      }}
     >
-      <div className="mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold" style={{ color: "var(--chrome-shine)" }}>
-            Analytics
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--metal-mid)" }}>
-            Resume chatbot · private
-          </p>
-        </div>
+      <h1
+        style={{
+          fontSize: 20,
+          fontWeight: 700,
+          color: "#111",
+          marginBottom: 24,
+          letterSpacing: "-0.3px",
+        }}
+      >
+        Mathan's Chatbot Dashboard
+      </h1>
 
-        {/* Stat cards */}
-        <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {[
-            { label: "Total questions", value: data.total.toLocaleString() },
-            { label: "Avg messages / session", value: data.avgMessages || "—" },
-            { label: "Unique questions tracked", value: data.topQuestions.length },
-          ].map(({ label, value }) => (
-            <div key={label} style={cardStyle}>
-              <p className="mb-1 text-xs uppercase tracking-wider" style={labelStyle}>
-                {label}
-              </p>
-              <p className="text-3xl font-semibold" style={{ color: "var(--chrome-shine)" }}>
-                {value}
-              </p>
+      {/* Stats grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+          gap: 12,
+          marginBottom: 28,
+        }}
+      >
+        {[
+          { label: "RECRUITER SESSIONS", value: data.totalSessions },
+          { label: "TOTAL MESSAGES", value: data.totalMessages },
+          { label: "PERSONA: RECRUITER", value: data.personaStats.recruiter ?? 0 },
+          { label: "PERSONA: FRIEND", value: data.personaStats.friend ?? 0 },
+          { label: "PERSONA: LUKE", value: data.personaStats.luke ?? 0 },
+          { label: "PERSONA: CHRIS", value: data.personaStats.chris ?? 0 },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e5e5",
+              borderRadius: 10,
+              padding: "16px 18px",
+            }}
+          >
+            <div
+              style={{ fontSize: 10, fontWeight: 600, color: "#888", letterSpacing: "0.6px", marginBottom: 6 }}
+            >
+              {stat.label}
             </div>
-          ))}
-        </div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: "#111" }}>
+              {stat.value}
+            </div>
+          </div>
+        ))}
+      </div>
 
-        {/* Daily traffic chart */}
-        <div className="mb-6" style={cardStyle}>
-          <p className="mb-4 text-xs uppercase tracking-wider" style={labelStyle}>
-            Daily questions — last 14 days
-          </p>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={data.dailyTraffic} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 10, fill: "var(--metal-dark)" }}
-                tickFormatter={(v) => v.slice(5)}
-              />
-              <YAxis tick={{ fontSize: 10, fill: "var(--metal-dark)" }} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: 8,
-                  fontSize: 12,
-                  color: "var(--text-primary)",
+      {/* Sessions + Transcript */}
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        {/* Session list */}
+        <div
+          style={{
+            width: 280,
+            flexShrink: 0,
+            background: "#fff",
+            border: "1px solid #e5e5e5",
+            borderRadius: 10,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 16px",
+              borderBottom: "1px solid #e5e5e5",
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#888",
+              letterSpacing: "0.6px",
+            }}
+          >
+            RECRUITER SESSIONS
+          </div>
+          {data.sessions.length === 0 ? (
+            <div style={{ padding: 16, color: "#aaa", fontSize: 13 }}>
+              No sessions yet
+            </div>
+          ) : (
+            data.sessions.map((s) => (
+              <button
+                key={s.sessionId}
+                onClick={() => setSelectedSession(s)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "12px 16px",
+                  borderBottom: "1px solid #f0f0f0",
+                  background: selectedSession?.sessionId === s.sessionId ? "#f7f7f8" : "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  borderLeft: selectedSession?.sessionId === s.sessionId ? "3px solid #111" : "3px solid transparent",
                 }}
-                labelFormatter={(v) => String(v)}
-              />
-              <Bar dataKey="count" fill="var(--accent-glow)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+              >
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>
+                  {new Date(s.startedAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+                  {s.messages.length} messages
+                  {s.referrer ? ` · ${new URL(s.referrer).hostname}` : ""}
+                </div>
+              </button>
+            ))
+          )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {/* Top questions */}
-          <div style={cardStyle}>
-            <p className="mb-4 text-xs uppercase tracking-wider" style={labelStyle}>
-              Top questions
-            </p>
-            <div className="space-y-2">
-              {data.topQuestions.slice(0, 10).map(({ question, count }) => (
-                <div key={question} className="flex items-start justify-between gap-3">
-                  <p
-                    className="flex-1 text-xs leading-relaxed"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    {question}
-                  </p>
-                  <span
-                    className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+        {/* Transcript viewer */}
+        <div
+          style={{
+            flex: 1,
+            background: "#fff",
+            border: "1px solid #e5e5e5",
+            borderRadius: 10,
+            overflow: "hidden",
+            minHeight: 300,
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 16px",
+              borderBottom: "1px solid #e5e5e5",
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#888",
+              letterSpacing: "0.6px",
+            }}
+          >
+            TRANSCRIPT
+          </div>
+          {!selectedSession ? (
+            <div style={{ padding: 24, color: "#aaa", fontSize: 13 }}>
+              Select a session to view transcript
+            </div>
+          ) : selectedSession.messages.length === 0 ? (
+            <div style={{ padding: 24, color: "#aaa", fontSize: 13 }}>
+              No messages in this session
+            </div>
+          ) : (
+            <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+              {selectedSession.messages.map((msg, i) => (
+                <div
+                  key={i}
+                  style={{
+                    borderLeft: `3px solid ${msg.role === "user" ? "#111" : "#ccc"}`,
+                    paddingLeft: 12,
+                  }}
+                >
+                  <div
                     style={{
-                      background: "var(--chip-bg)",
-                      color: "var(--accent-glow)",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: msg.role === "user" ? "#111" : "#888",
+                      letterSpacing: "0.5px",
+                      marginBottom: 4,
                     }}
                   >
-                    {count}×
-                  </span>
+                    {msg.role === "user" ? "RECRUITER" : "MATHAN.AI"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#333", lineHeight: 1.5 }}>
+                    {msg.content}
+                  </div>
                 </div>
               ))}
-              {data.topQuestions.length === 0 && (
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  No data yet.
-                </p>
-              )}
             </div>
-          </div>
-
-          {/* Recent questions */}
-          <div style={cardStyle}>
-            <p className="mb-4 text-xs uppercase tracking-wider" style={labelStyle}>
-              Recent questions
-            </p>
-            <div className="space-y-3">
-              {data.recentQuestions.map(({ question, timestamp, messageCount }, i) => (
-                <div key={i} className="border-b pb-2 last:border-b-0" style={{ borderColor: "var(--border-subtle)" }}>
-                  <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                    {question}
-                  </p>
-                  <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                    {new Date(timestamp).toLocaleString()}
-                    {messageCount != null && ` · msg #${messageCount}`}
-                  </p>
-                </div>
-              ))}
-              {data.recentQuestions.length === 0 && (
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  No data yet.
-                </p>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
+
+      {/* Recent questions */}
+      {data.recentQuestions.length > 0 && (
+        <div
+          style={{
+            marginTop: 16,
+            background: "#fff",
+            border: "1px solid #e5e5e5",
+            borderRadius: 10,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 16px",
+              borderBottom: "1px solid #e5e5e5",
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#888",
+              letterSpacing: "0.6px",
+            }}
+          >
+            RECENT RECRUITER QUESTIONS
+          </div>
+          <div style={{ padding: "12px 16px" }}>
+            {data.recentQuestions.map((q, i) => (
+              <div
+                key={i}
+                style={{
+                  fontSize: 13,
+                  color: "#333",
+                  padding: "6px 0",
+                  borderBottom: i < data.recentQuestions.length - 1 ? "1px solid #f5f5f5" : "none",
+                  display: "flex",
+                  gap: 10,
+                }}
+              >
+                <span style={{ color: "#aaa", minWidth: 20, fontVariantNumeric: "tabular-nums" }}>
+                  {i + 1}.
+                </span>
+                <span>{q}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function DashboardPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<div style={{ padding: 40 }}>Loading…</div>}>
       <DashboardContent />
     </Suspense>
   );
