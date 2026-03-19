@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.2.0] - 2026-03-18
+
+### Added
+- **Persona Selector** — visitors now choose who they are (Recruiter, Friend, Luke Skywalker, Christopher Moltisanti) before chatting; each persona gets a tailored greeting and system prompt note
+- **Recruiter session tracking** — when a recruiter starts a session, it is stored in Redis with a full transcript (user + assistant messages), referrer, userAgent, and timestamp; data persists for 90 days
+- **Persona analytics** — per-persona click counters tracked via `stats:persona:{id}` keys in Redis
+- **New analytics dashboard** (`app/dashboard/page.tsx`) — replaced Recharts chart dashboard with a session-focused view: stats grid (recruiter sessions, total messages, per-persona counts), session list with date/message count/referrer, transcript viewer showing RECRUITER / MATHAN.AI turns, and a recent questions list
+
+### Changed
+- **Analytics API** (`app/api/analytics/route.ts`) — rewrote POST handler to support `session_start`, `message`, and `persona_click` event types; legacy question-based tracking preserved for backward compatibility; GET now returns recruiter sessions with full transcripts and persona stats
+- **Chat API** (`app/api/chat/route.ts`) — `getSystemPrompt()` now accepts an optional `persona` parameter and appends persona-specific system notes; persona is passed from the client in the request body
+- **Input/send button** disabled until a persona is selected; placeholder updated to prompt persona selection
+
 ## [0.2.1.0] - 2026-03-18
 
 ### Added
