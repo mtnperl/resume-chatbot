@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import resume from "@/lib/resume";
 import { MAX_MESSAGES } from "@/lib/constants";
+import { personaSystemNotes } from "@/lib/prompts";
 
 const client = new Anthropic();
 
@@ -40,16 +41,24 @@ const MODE_ADDITIONS: Record<string, string> = {
     "Emphasize leadership, strategic vision, and business outcomes. Highlight P&L impact, team management, and executive-level communication.",
 };
 
-export function getSystemPrompt(mode?: string): string {
+export function getSystemPrompt(mode?: string, persona?: string): string {
   const base = BASE_SYSTEM_PROMPT;
-  if (!mode || !(mode in MODE_ADDITIONS)) return base;
-  return `${base}\nTone emphasis for this session:\n${MODE_ADDITIONS[mode]}`;
+  const modeNote =
+    mode && mode in MODE_ADDITIONS
+      ? `\nTone emphasis for this session:\n${MODE_ADDITIONS[mode]}`
+      : "";
+  const personaNote =
+    persona && persona in personaSystemNotes
+      ? personaSystemNotes[persona]
+      : "";
+  return `${base}${modeNote}${personaNote}`;
 }
 
 
 export async function POST(request: Request) {
   // Parse and validate the request body
   let messages: Anthropic.MessageParam[];
+  let persona: string | undefined;
   try {
     const body = await request.json();
     if (!Array.isArray(body?.messages)) {
@@ -59,6 +68,7 @@ export async function POST(request: Request) {
       );
     }
     messages = body.messages as Anthropic.MessageParam[];
+    persona = typeof body.persona === "string" ? body.persona : undefined;
   } catch {
     return new Response(
       JSON.stringify({ error: "Invalid request: could not parse JSON body" }),
@@ -89,7 +99,7 @@ export async function POST(request: Request) {
       {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1024,
-        system: getSystemPrompt(mode),
+        system: getSystemPrompt(mode, persona),
         messages,
       },
       { signal: controller.signal }
