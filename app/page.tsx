@@ -800,8 +800,8 @@ export default function Home() {
           </div>
         </main>
 
-        {/* Input footer */}
-        <footer
+        {/* Input footer — hidden until persona selected */}
+        {!persona ? null : <footer
           className="shrink-0 px-4 pt-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)" }}
         >
@@ -858,7 +858,7 @@ export default function Home() {
               </button>
             </form>
           </div>
-        </footer>
+        </footer>}
       </div>
 
       {showContact && <ContactModal onClose={() => setShowContact(false)} />}
