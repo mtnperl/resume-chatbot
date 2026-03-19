@@ -378,7 +378,7 @@ export default function Home() {
 
   const handleSend = useCallback(
     async (text: string) => {
-      if (!text.trim() || isLoading || atMessageLimit) return;
+      if (!text.trim() || isLoading || atMessageLimit || !persona) return;
 
       const userMessage: Message = {
         id: crypto.randomUUID(),
