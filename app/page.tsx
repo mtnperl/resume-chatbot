@@ -750,37 +750,37 @@ export default function Home() {
                     isStreaming={isLoading && message.id === streamingId}
                     prevUserQuestion={prevUserMsg?.content as string | undefined}
                   />
-                  {/* Follow-up chips below the last assistant message */}
+                  {/* Follow-up question bubbles below the last assistant message */}
                   {isLastMessage &&
                     message.role === "assistant" &&
                     !isLoading &&
                     followUpQuestions.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-2 flex flex-col gap-1.5">
                         {followUpQuestions.map((q) => (
-                          <button
-                            key={q}
-                            onClick={() => handleSend(q)}
-                            className="rounded-xl px-3 py-1.5 text-xs transition-all"
-                            style={{
-                              background: "var(--chip-bg)",
-                              border: "1px solid var(--chip-border)",
-                              color: "var(--metal-mid)",
-                            }}
-                            onMouseEnter={(e) => {
-                              const el = e.currentTarget as HTMLButtonElement;
-                              el.style.borderColor = "var(--chip-hover-border)";
-                              el.style.color = "var(--chip-hover-color)";
-                              el.style.boxShadow = "var(--chip-hover-glow)";
-                            }}
-                            onMouseLeave={(e) => {
-                              const el = e.currentTarget as HTMLButtonElement;
-                              el.style.borderColor = "var(--chip-border)";
-                              el.style.color = "var(--metal-mid)";
-                              el.style.boxShadow = "none";
-                            }}
-                          >
-                            {q}
-                          </button>
+                          <div key={q} className="flex items-end">
+                            <button
+                              onClick={() => handleSend(q)}
+                              className="max-w-[82%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed text-left transition-all"
+                              style={{
+                                background: "var(--bubble-user-bg)",
+                                border: "1px solid var(--bubble-user-border)",
+                                color: "var(--bubble-user-color)",
+                                opacity: 0.72,
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLButtonElement).style.opacity = "1";
+                                (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 20px var(--bubble-user-shadow)";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLButtonElement).style.opacity = "0.72";
+                                (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                              }}
+                            >
+                              {q}
+                            </button>
+                          </div>
                         ))}
                       </div>
                     )}

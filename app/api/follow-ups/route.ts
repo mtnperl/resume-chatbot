@@ -15,15 +15,17 @@ export async function POST(request: Request) {
       messages: [
         {
           role: "user",
-          content: `Based on this answer about Mathan Perl, generate 3 short follow-up questions a recruiter might ask. Return ONLY a valid JSON array of 3 strings. Max 8 words each. No explanation, no markdown, no other text — just the JSON array.\n\nAnswer: ${lastAnswer.slice(0, 1000)}`,
+          content: `Based on this answer about Mathan Perl, generate 2 short follow-up questions a recruiter might ask to learn more. Return ONLY a valid JSON array of exactly 2 strings. Max 10 words each. No explanation, no markdown, no other text — just the JSON array.\n\nAnswer: ${lastAnswer.slice(0, 1000)}`,
         },
       ],
     });
 
-    const text = (response.content[0] as { type: "text"; text: string }).text.trim();
-    const questions = JSON.parse(text);
+    const raw = (response.content[0] as { type: "text"; text: string }).text.trim();
+    const start = raw.indexOf("[");
+    const end = raw.lastIndexOf("]");
+    const questions = start !== -1 && end !== -1 ? JSON.parse(raw.slice(start, end + 1)) : [];
     return Response.json({
-      questions: Array.isArray(questions) ? questions.slice(0, 3) : [],
+      questions: Array.isArray(questions) ? questions.slice(0, 2) : [],
     });
   } catch {
     return Response.json({ questions: [] });
