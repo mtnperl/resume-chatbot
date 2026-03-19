@@ -52,14 +52,18 @@ Return ONLY a valid JSON object with NO markdown, NO backticks, NO explanation. 
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1000,
+      system: "You are a JSON API. Respond with raw JSON only — no markdown, no backticks, no explanation, no text before or after the JSON object.",
       messages: [{ role: "user", content: prompt }],
     });
 
     const text =
       response.content[0].type === "text" ? response.content[0].text.trim() : "";
 
-    // Strip any accidental markdown fences
-    const cleaned = text.replace(/^```[a-z]*\n?/i, "").replace(/```$/i, "").trim();
+    // Extract JSON object robustly — find first { and last }
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start === -1 || end === -1) throw new SyntaxError("No JSON object found in response");
+    const cleaned = text.slice(start, end + 1);
 
     const result = JSON.parse(cleaned);
     return NextResponse.json(result);
