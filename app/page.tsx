@@ -5,6 +5,8 @@ import type { Anthropic } from "@anthropic-ai/sdk";
 import ReactMarkdown from "react-markdown";
 import { MAX_MESSAGES } from "@/lib/constants";
 import jsPDF from "jspdf";
+import RoleFitAnalyzer from "@/components/RoleFitAnalyzer";
+import Timeline from "@/components/Timeline";
 
 type Message = Anthropic.MessageParam & { id: string };
 
@@ -592,6 +594,8 @@ export default function Home() {
           </span>
 
           <div className="ml-auto flex items-center gap-2">
+            <Timeline onSelectPrompt={handleSend} />
+            <RoleFitAnalyzer />
             <ThemeToggle theme={theme} onToggle={() => setTheme(theme === "light" ? "dark" : "light")} />
             {canShare && (
               <button
