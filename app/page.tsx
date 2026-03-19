@@ -7,8 +7,11 @@ import { MAX_MESSAGES } from "@/lib/constants";
 import jsPDF from "jspdf";
 import RoleFitAnalyzer from "@/components/RoleFitAnalyzer";
 import Timeline from "@/components/Timeline";
+import PersonaSelector from "@/components/PersonaSelector";
+import { personaReplies } from "@/lib/prompts";
 
 type Message = Anthropic.MessageParam & { id: string };
+type Persona = "recruiter" | "friend" | "luke" | "chris" | null;
 
 const WELCOME_MESSAGE: Message = {
   id: "welcome",
@@ -350,6 +353,7 @@ export default function Home() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
   const [shareToast, setShareToast] = useState<"idle" | "copying" | "copied">("idle");
+  const [persona, setPersona] = useState<Persona>(null);
   const sessionId = useRef<string>(crypto.randomUUID());
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -396,17 +400,19 @@ export default function Home() {
       setStreamingId(assistantMessage.id);
       setFollowUpQuestions([]);
 
-      // Log to analytics (fire-and-forget)
-      fetch("/api/analytics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: text.trim(),
-          sessionId: sessionId.current,
-          referrer: document.referrer || null,
-          messageCount: updatedMessages.length,
-        }),
-      }).catch(() => {});
+      // Log user message for recruiter sessions (fire-and-forget)
+      if (persona === "recruiter") {
+        fetch("/api/analytics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "message",
+            sessionId: sessionId.current,
+            role: "user",
+            content: text.trim(),
+          }),
+        }).catch(() => {});
+      }
 
       try {
         const response = await fetch("/api/chat", {
@@ -414,6 +420,7 @@ export default function Home() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: updatedMessages.map(({ role, content }) => ({ role, content })),
+            persona: persona ?? "recruiter",
           }),
         });
 
@@ -435,6 +442,20 @@ export default function Home() {
                 : m
             )
           );
+        }
+
+        // Log assistant reply for recruiter sessions (fire-and-forget)
+        if (persona === "recruiter" && fullContent) {
+          fetch("/api/analytics", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              event: "message",
+              sessionId: sessionId.current,
+              role: "assistant",
+              content: fullContent,
+            }),
+          }).catch(() => {});
         }
 
         // Fetch follow-up questions in the background after stream completes
@@ -466,8 +487,38 @@ export default function Home() {
         setStreamingId(null);
       }
     },
-    [isLoading, atMessageLimit, messages]
+    [isLoading, atMessageLimit, messages, persona]
   );
+
+  function handlePersonaSelect(selected: string) {
+    setPersona(selected as Persona);
+    setMessages([
+      {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: personaReplies[selected] ?? personaReplies.recruiter,
+      },
+    ]);
+    // Log persona click (all users) and session start (recruiter only)
+    fetch("/api/analytics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "persona_click", sessionId: sessionId.current, persona: selected }),
+    }).catch(() => {});
+    if (selected === "recruiter") {
+      fetch("/api/analytics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "session_start",
+          sessionId: sessionId.current,
+          persona: selected,
+          referrer: document.referrer || null,
+          userAgent: navigator.userAgent,
+        }),
+      }).catch(() => {});
+    }
+  }
 
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -656,7 +707,11 @@ export default function Home() {
 
         {/* Messages */}
         <main className="flex flex-1 flex-col items-center overflow-y-auto px-4 py-6">
-          <div className="w-full max-w-2xl space-y-4">
+          <div className="w-full max-w-2xl">
+          {!persona ? (
+            <PersonaSelector onSelect={handlePersonaSelect} />
+          ) : (
+          <div className="space-y-4">
             {messages.map((message, i) => {
               const prevUserMsg = messages
                 .slice(0, i)
@@ -716,6 +771,8 @@ export default function Home() {
 
             <div ref={bottomRef} />
           </div>
+          )}
+          </div>
         </main>
 
         {/* Input footer */}
@@ -749,11 +806,13 @@ export default function Home() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={
-                  atMessageLimit
+                  !persona
+                    ? "Select who you are above to start chatting..."
+                    : atMessageLimit
                     ? "Conversation limit reached — refresh to continue"
                     : "Ask about his experience, skills, or background..."
                 }
-                disabled={isLoading || atMessageLimit}
+                disabled={isLoading || atMessageLimit || !persona}
                 className="flex-1 text-sm transition-all disabled:opacity-50"
                 style={{
                   background: "var(--input-bg)",
@@ -776,7 +835,7 @@ export default function Home() {
               />
               <button
                 type="submit"
-                disabled={isLoading || !input.trim() || atMessageLimit}
+                disabled={isLoading || !input.trim() || atMessageLimit || !persona}
                 className="shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
                 style={{ background: "var(--send-bg)", boxShadow: "var(--send-shadow)" }}
                 onMouseEnter={(e) => {
