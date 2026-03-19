@@ -7,7 +7,7 @@ type Props = {
 const personas = [
   { id: "recruiter", emoji: "🎯", label: "A recruiter doing their job" },
   { id: "friend", emoji: "😅", label: "A friend who has heard this 100 times" },
-  { id: "luke", emoji: "⚔️", label: "Luke Skywalker" },
+  { id: "michael", emoji: "🏆", label: "Michael Scott, World's Best Boss" },
   { id: "chris", emoji: "🍝", label: "Christopher Moltisanti" },
 ];
 
