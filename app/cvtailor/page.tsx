@@ -34,11 +34,28 @@ const BOOT_MESSAGES = [
   "ALMOST THERE...",
 ];
 
-function RetroLoader() {
+const COVER_LETTER_MESSAGES = [
+  "LOADING COVER_LETTER.EXE...",
+  "READING JOB DESCRIPTION...",
+  "ANALYZING HIRING MANAGER PSYCHOLOGY...",
+  "EXTRACTING KEY REQUIREMENTS...",
+  "MATCHING CANDIDATE ACHIEVEMENTS...",
+  "SELECTING POWER ANECDOTES...",
+  "CRAFTING OPENING HOOK...",
+  "ELIMINATING CORPORATE BUZZWORDS...",
+  "CALIBRATING CONFIDENCE LEVEL...",
+  "POLISHING PROSE...",
+  "REMOVING EM-DASHES...",
+  "RUNNING CRINGE DETECTOR...",
+  "FINALIZING LETTER...",
+  "ALMOST THERE...",
+];
+
+function RetroLoader({ messages = BOOT_MESSAGES }: { messages?: string[] }) {
   const [progress, setProgress] = useState(0);
   const [msgIdx, setMsgIdx] = useState(0);
   const [blink, setBlink] = useState(true);
-  const [log, setLog] = useState<string[]>([BOOT_MESSAGES[0]]);
+  const [log, setLog] = useState<string[]>([messages[0]]);
 
   useEffect(() => {
     // Progress bar — slow ramp, stalls near 90% waiting for API
@@ -53,8 +70,8 @@ function RetroLoader() {
     // Cycle messages
     const msgTimer = setInterval(() => {
       setMsgIdx((i) => {
-        const next = Math.min(i + 1, BOOT_MESSAGES.length - 1);
-        setLog((prev) => [...prev.slice(-6), BOOT_MESSAGES[next]]);
+        const next = Math.min(i + 1, messages.length - 1);
+        setLog((prev) => [...prev.slice(-6), messages[next]]);
         return next;
       });
     }, 1100);
@@ -880,12 +897,7 @@ function CoverLetterScreen({ segments, cvText, jd, onBack, onReset }: {
       )}
 
       {/* Loading */}
-      {loading && (
-        <div className="border border-slate-200 bg-white px-8 py-16 text-center">
-          <div className="mx-auto mb-4 h-6 w-6 animate-spin rounded-full border-2 border-slate-900 border-t-transparent" />
-          <p className="font-mono text-xs tracking-wider uppercase text-slate-400">Writing your cover letter...</p>
-        </div>
-      )}
+      {loading && <RetroLoader messages={COVER_LETTER_MESSAGES} />}
 
       {/* Generated letter */}
       {coverLetter && (
