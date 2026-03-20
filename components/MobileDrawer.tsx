@@ -127,13 +127,15 @@ export default function MobileDrawer({ open, onClose, onContact }: Props) {
           <div style={{ height: 1, background: "var(--divider-bg)" }} />
           <p
             style={{
-              fontSize: 13,
+              fontFamily: "'Courier New', Courier, monospace",
+              fontSize: 12,
               color: "var(--metal-mid)",
-              lineHeight: 1.65,
+              lineHeight: 1.75,
               textAlign: "center",
+              letterSpacing: "0.03em",
             }}
           >
-            Eight years at Unity — from early employee through unicorn, IPO, and acquisition. I built this so you can skip the PDF and know in five minutes if I&apos;m worth a call.
+            Eight years at Unity. From early employee through unicorn, IPO, and acquisition. I built this so you can skip the PDF and know in five minutes if I&apos;m worth a call.
           </p>
           <div style={{ height: 1, background: "var(--divider-bg)" }} />
         </div>
