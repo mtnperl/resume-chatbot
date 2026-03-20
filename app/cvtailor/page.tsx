@@ -9,58 +9,128 @@ type Segment = {
   original: string;
   edited: string;
   changed: boolean;
+  reason: string;
   status: "pending" | "approved" | "reverted";
 };
 
-type Stage = "password" | "upload" | "review";
+type Stage = "upload" | "review";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── XML helpers for docx patching ───────────────────────────────────────────
 
-const PASSWORD = "mathan2025";
+function xmlEscape(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
-// ─── Password Gate ────────────────────────────────────────────────────────────
+function xmlUnescape(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
 
-function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
-  const [value, setValue] = useState("");
-  const [error, setError] = useState(false);
+function getParaText(paraXml: string): string {
+  return [...paraXml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)]
+    .map((m) => xmlUnescape(m[1]))
+    .join("");
+}
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (value === PASSWORD) {
-      onUnlock();
-    } else {
-      setError(true);
-      setValue("");
+interface DocxRun {
+  xml: string;
+  text: string;
+  rPr: string;
+  from: number;
+  to: number;
+}
+
+function parseRuns(xml: string): DocxRun[] {
+  const runs: DocxRun[] = [];
+  let pos = 0;
+  const re = /<w:r(?:\s[^>]*)?>[\s\S]*?<\/w:r>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    const runXml = m[0];
+    const tText = [...runXml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)]
+      .map((x) => xmlUnescape(x[1]))
+      .join("");
+    const rPrM = runXml.match(/<w:rPr>[\s\S]*?<\/w:rPr>/);
+    runs.push({ xml: runXml, text: tText, rPr: rPrM ? rPrM[0] : "", from: pos, to: pos + tText.length });
+    pos += tText.length;
+  }
+  return runs;
+}
+
+function makeRun(rPr: string, text: string): string {
+  return `<w:r>${rPr}<w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
+}
+
+function patchParagraph(para: string, orig: string, edit: string): string {
+  const paraText = getParaText(para);
+  if (!paraText.includes(orig)) return para;
+
+  // Try: orig is fully inside one <w:t>
+  const esc = orig.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const singleRe = new RegExp(`(<w:t(?:\\s[^>]*)?>(?:[^<]*)?)${xmlEscape(orig).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}((?:[^<]*)<\\/w:t>)`);
+  if (singleRe.test(para)) {
+    return para.replace(singleRe, `$1${xmlEscape(edit)}$2`);
+  }
+  void esc;
+
+  // Text spans multiple runs — patch at run level
+  const runsStart = para.search(/<w:r[ >]/);
+  if (runsStart < 0) return para;
+  const lastRunEnd = para.lastIndexOf("</w:r>") + "</w:r>".length;
+  const beforeRuns = para.slice(0, runsStart);
+  const runsSection = para.slice(runsStart, lastRunEnd);
+  const afterRuns = para.slice(lastRunEnd);
+
+  const origStart = paraText.indexOf(orig);
+  const origEnd = origStart + orig.length;
+  const runs = parseRuns(runsSection);
+
+  let newRuns = "";
+  let editInserted = false;
+
+  for (const run of runs) {
+    const overlaps = run.from < origEnd && run.to > origStart;
+    if (!overlaps) {
+      newRuns += run.xml;
+      continue;
     }
+    const keepBefore = run.text.slice(0, Math.max(0, origStart - run.from));
+    const keepAfter = run.text.slice(Math.max(0, origEnd - run.from));
+    if (keepBefore) newRuns += makeRun(run.rPr, keepBefore);
+    if (!editInserted) {
+      newRuns += makeRun(run.rPr, edit);
+      editInserted = true;
+    }
+    if (keepAfter) newRuns += makeRun(run.rPr, keepAfter);
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-10 shadow-sm border border-gray-100">
-        <h1 className="mb-1 text-xl font-semibold text-gray-900">CV Tailor</h1>
-        <p className="mb-8 text-sm text-gray-500">Enter the access password to continue.</p>
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <input
-            type="password"
-            value={value}
-            onChange={(e) => { setValue(e.target.value); setError(false); }}
-            placeholder="Password"
-            autoFocus
-            className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
-          />
-          {error && (
-            <p className="text-xs text-red-500">Incorrect password. Try again.</p>
-          )}
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-[#2563EB] py-3 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-          >
-            Unlock
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+  return beforeRuns + newRuns + afterRuns;
+}
+
+function applyEditsToXml(xml: string, segments: Segment[]): string {
+  const approved = segments.filter((s) => s.changed && s.status === "approved" && s.original !== s.edited);
+  if (approved.length === 0) return xml;
+
+  let result = "";
+  let lastIdx = 0;
+  const paraRe = /(<w:p[ >][\s\S]*?<\/w:p>)/g;
+  let m: RegExpExecArray | null;
+
+  while ((m = paraRe.exec(xml)) !== null) {
+    result += xml.slice(lastIdx, m.index);
+    let para = m[0];
+    for (const seg of approved) {
+      para = patchParagraph(para, seg.original.trim(), seg.edited.trim());
+    }
+    result += para;
+    lastIdx = m.index + m[0].length;
+  }
+  result += xml.slice(lastIdx);
+  return result;
 }
 
 // ─── File Parser ──────────────────────────────────────────────────────────────
@@ -73,21 +143,15 @@ async function parseDocx(file: File): Promise<string> {
 }
 
 async function parsePdf(file: File): Promise<string> {
-  // Dynamically import pdfjs to avoid SSR issues
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
   const pages: string[] = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ");
-    pages.push(text);
+    pages.push(content.items.map((item) => ("str" in item ? item.str : "")).join(" "));
   }
   return pages.join("\n\n");
 }
@@ -95,11 +159,12 @@ async function parsePdf(file: File): Promise<string> {
 // ─── Upload Screen ────────────────────────────────────────────────────────────
 
 function UploadScreen({
-  onAnalyze,
+  onComplete,
 }: {
-  onAnalyze: (cvText: string, jd: string) => void;
+  onComplete: (segments: Segment[], file: File) => void;
 }) {
   const [cvText, setCvText] = useState<string | null>(null);
+  const [cvFile, setCvFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [jd, setJd] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -113,6 +178,7 @@ function UploadScreen({
     setParseError(null);
     setCvText(null);
     setFileName(null);
+    setCvFile(null);
     setParsing(true);
     try {
       let text = "";
@@ -126,6 +192,7 @@ function UploadScreen({
         return;
       }
       setCvText(text);
+      setCvFile(file);
       setFileName(file.name);
     } catch {
       setParseError("Failed to parse file. Please try a different file.");
@@ -145,7 +212,7 @@ function UploadScreen({
   );
 
   async function handleSubmit() {
-    if (!cvText || !jd.trim()) return;
+    if (!cvText || !jd.trim() || !cvFile) return;
     setLoading(true);
     setApiError(null);
     try {
@@ -156,14 +223,11 @@ function UploadScreen({
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      // Add status field to each segment
       const segments: Segment[] = data.segments.map((s: Omit<Segment, "status">) => ({
         ...s,
         status: "pending",
       }));
-      onAnalyze(cvText, jd);
-      // Pass segments up through a small hack — store in sessionStorage
-      sessionStorage.setItem("tailor_segments", JSON.stringify(segments));
+      onComplete(segments, cvFile);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -185,11 +249,7 @@ function UploadScreen({
             onDrop={onDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors ${
-              dragging
-                ? "border-blue-500 bg-blue-50"
-                : cvText
-                ? "border-green-400 bg-green-50"
-                : "border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100"
+              dragging ? "border-blue-500 bg-blue-50" : cvText ? "border-green-400 bg-green-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
             }`}
           >
             <input
@@ -197,10 +257,7 @@ function UploadScreen({
               type="file"
               accept=".docx,.pdf"
               className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFile(file);
-              }}
+              onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }}
             />
             {parsing ? (
               <div className="text-center">
@@ -211,9 +268,7 @@ function UploadScreen({
               <div className="text-center px-6">
                 <div className="mb-2 text-2xl">✓</div>
                 <p className="font-medium text-green-700 text-sm">{fileName}</p>
-                <p className="mt-1 text-xs text-gray-500">
-                  {cvText.length.toLocaleString()} characters extracted
-                </p>
+                <p className="mt-1 text-xs text-gray-500">{cvText.length.toLocaleString()} characters extracted</p>
                 <p className="mt-2 text-xs text-blue-500">Click to replace</p>
               </div>
             ) : (
@@ -225,9 +280,7 @@ function UploadScreen({
               </div>
             )}
           </div>
-          {parseError && (
-            <p className="text-xs text-red-500">{parseError}</p>
-          )}
+          {parseError && <p className="text-xs text-red-500">{parseError}</p>}
         </div>
 
         {/* Job Description */}
@@ -243,9 +296,7 @@ function UploadScreen({
       </div>
 
       {apiError && (
-        <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-          {apiError}
-        </div>
+        <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{apiError}</div>
       )}
 
       <div className="mt-6 flex justify-end">
@@ -268,16 +319,43 @@ function UploadScreen({
   );
 }
 
+// ─── Info tooltip ─────────────────────────────────────────────────────────────
+
+function InfoTip({ reason }: { reason: string }) {
+  const [open, setOpen] = useState(false);
+  if (!reason) return null;
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setOpen(false)}
+        className="ml-1 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200 transition-colors text-[10px] font-semibold"
+        title="Why this change?"
+      >
+        i
+      </button>
+      {open && (
+        <span className="absolute left-6 top-0 z-50 w-56 rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs text-gray-700 shadow-lg">
+          {reason}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ─── Review Screen ────────────────────────────────────────────────────────────
 
 function ReviewScreen({
   segments: initialSegments,
+  originalFile,
   onReset,
 }: {
   segments: Segment[];
+  originalFile: File | null;
   onReset: () => void;
 }) {
   const [segments, setSegments] = useState<Segment[]>(initialSegments);
+  const [downloading, setDownloading] = useState(false);
 
   const changed = segments.filter((s) => s.changed);
   const approved = segments.filter((s) => s.changed && s.status === "approved");
@@ -285,52 +363,64 @@ function ReviewScreen({
   const pending = segments.filter((s) => s.changed && s.status === "pending");
 
   function approve(idx: number) {
-    setSegments((prev) =>
-      prev.map((s, i) => (i === idx ? { ...s, status: "approved" } : s))
-    );
+    setSegments((prev) => prev.map((s, i) => (i === idx ? { ...s, status: "approved" } : s)));
   }
 
   function revert(idx: number) {
-    setSegments((prev) =>
-      prev.map((s, i) => (i === idx ? { ...s, status: "reverted" } : s))
-    );
+    setSegments((prev) => prev.map((s, i) => (i === idx ? { ...s, status: "reverted" } : s)));
   }
 
   function approveAll() {
-    setSegments((prev) =>
-      prev.map((s) => (s.changed && s.status === "pending" ? { ...s, status: "approved" } : s))
-    );
+    setSegments((prev) => prev.map((s) => (s.changed && s.status === "pending" ? { ...s, status: "approved" } : s)));
   }
 
   async function downloadDocx() {
-    const finalSegments = segments.map((s) => {
-      if (!s.changed || s.status === "reverted") return s.original;
-      if (s.status === "approved") return s.edited;
-      return s.original; // pending → keep original
-    });
-
-    // Split text into paragraphs by newlines
-    const fullText = finalSegments.join(" ");
-    const paragraphs = fullText
-      .split(/\n+/)
-      .filter((line) => line.trim().length > 0)
-      .map(
-        (line) =>
-          new Paragraph({
-            children: [new TextRun({ text: line.trim(), size: 24, font: "Calibri" })],
-            spacing: { after: 160 },
+    setDownloading(true);
+    try {
+      // If original was .docx — patch the original document's XML
+      if (originalFile?.name.endsWith(".docx")) {
+        const JSZip = (await import("jszip")).default;
+        const zip = await JSZip.loadAsync(await originalFile.arrayBuffer());
+        const xmlFile = zip.file("word/document.xml");
+        if (!xmlFile) throw new Error("Invalid docx");
+        const xml = await xmlFile.async("string");
+        const patched = applyEditsToXml(xml, segments);
+        zip.file("word/document.xml", patched);
+        const blob = await zip.generateAsync({
+          type: "blob",
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        });
+        triggerDownload(blob, "CV_Tailored.docx");
+      } else {
+        // PDF fallback — rebuild clean .docx from text
+        const finalText = segments
+          .map((s) => {
+            if (!s.changed || s.status === "reverted") return s.original;
+            if (s.status === "approved") return s.edited;
+            return s.original;
           })
-      );
+          .join(" ");
+        const paras = finalText
+          .split(/\n+/)
+          .filter((l) => l.trim())
+          .map((l) => new Paragraph({ children: [new TextRun({ text: l.trim(), size: 24, font: "Calibri" })], spacing: { after: 160 } }));
+        const doc = new Document({ sections: [{ children: paras }] });
+        const blob = await Packer.toBlob(doc);
+        triggerDownload(blob, "CV_Tailored.docx");
+      }
+    } catch (err) {
+      console.error("Download failed:", err);
+      alert("Download failed. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
-    const doc = new Document({
-      sections: [{ children: paragraphs }],
-    });
-
-    const blob = await Packer.toBlob(doc);
+  function triggerDownload(blob: Blob, name: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "CV_Tailored.docx";
+    a.download = name;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -367,8 +457,10 @@ function ReviewScreen({
           {approved.length > 0 && (
             <button
               onClick={downloadDocx}
-              className="rounded-lg bg-[#2563EB] px-5 py-2 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
+              disabled={downloading}
+              className="flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-5 py-2 text-xs font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
+              {downloading && <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
               Download .docx
             </button>
           )}
@@ -383,49 +475,48 @@ function ReviewScreen({
 
       {/* CV content */}
       <div className="rounded-xl border border-gray-100 bg-white px-8 py-8 shadow-sm">
-        <div className="prose prose-sm max-w-none">
+        <div className="leading-relaxed text-sm text-gray-900">
           {segments.map((seg, i) => {
             if (!seg.changed) {
-              return (
-                <span key={i} className="text-gray-900">
-                  {seg.original}
-                </span>
-              );
+              return <span key={i}>{seg.original}</span>;
             }
 
             const isApproved = seg.status === "approved";
             const isReverted = seg.status === "reverted";
+            const isPending = seg.status === "pending";
 
             return (
-              <span key={i} className="relative inline">
-                {/* Edit block */}
+              <span key={i} className="inline">
                 <span
-                  className={`inline-flex flex-wrap items-start gap-1 rounded px-0.5 ${
-                    isApproved
-                      ? "bg-green-50"
-                      : isReverted
-                      ? "bg-gray-50"
-                      : "bg-blue-50"
+                  className={`inline rounded px-0.5 ${
+                    isApproved ? "bg-green-50" : isReverted ? "" : "bg-blue-50"
                   }`}
                 >
-                  {/* Edited text (shown when pending or approved) */}
+                  {/* Edited text (pending or approved) */}
                   {!isReverted && (
-                    <span
-                      className={`font-medium ${
-                        isApproved ? "text-green-800" : "text-[#2563EB]"
-                      }`}
-                    >
+                    <span className={`font-medium ${isApproved ? "text-green-800" : "text-[#2563EB]"}`}>
                       {seg.edited}
                     </span>
                   )}
-                  {/* Original text (shown reverted, or as strikethrough when pending) */}
+
+                  {/* Original text — always show, style depends on state */}
                   {isReverted ? (
                     <span className="text-gray-900">{seg.original}</span>
                   ) : (
-                    <span className="text-xs text-gray-400 line-through">{seg.original}</span>
+                    /* Deleted original — visually prominent */
+                    <span
+                      className="ml-1 inline-block rounded bg-red-100 px-1 text-xs text-red-600 line-through decoration-red-500 decoration-2"
+                      style={{ textDecorationLine: "line-through" }}
+                    >
+                      {seg.original}
+                    </span>
                   )}
+
+                  {/* Info tip (why this change) */}
+                  {!isReverted && <InfoTip reason={seg.reason} />}
+
                   {/* Action buttons */}
-                  {seg.status === "pending" && (
+                  {isPending && (
                     <span className="ml-1 inline-flex items-center gap-0.5">
                       <button
                         onClick={() => approve(i)}
@@ -446,7 +537,7 @@ function ReviewScreen({
                   {isApproved && (
                     <button
                       onClick={() => revert(i)}
-                      title="Undo approval"
+                      title="Undo"
                       className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 transition-colors text-xs"
                     >
                       ↩
@@ -455,7 +546,7 @@ function ReviewScreen({
                   {isReverted && (
                     <button
                       onClick={() => approve(i)}
-                      title="Re-approve"
+                      title="Re-apply"
                       className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-100 text-blue-400 hover:bg-blue-200 transition-colors text-xs"
                     >
                       ↻
@@ -475,53 +566,40 @@ function ReviewScreen({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CVTailorPage() {
-  const [stage, setStage] = useState<Stage>("password");
-  const [segments, setSegments] = useState<Segment[] | null>(null);
+  const [stage, setStage] = useState<Stage>("upload");
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
 
-  function handleUnlock() {
-    setStage("upload");
-  }
-
-  function handleAnalyze() {
-    const raw = sessionStorage.getItem("tailor_segments");
-    if (!raw) return;
-    const segs: Segment[] = JSON.parse(raw);
+  function handleComplete(segs: Segment[], file: File) {
     setSegments(segs);
+    setOriginalFile(file);
     setStage("review");
   }
 
   function handleReset() {
-    setSegments(null);
+    setSegments([]);
+    setOriginalFile(null);
     setStage("upload");
-    sessionStorage.removeItem("tailor_segments");
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      {stage !== "password" && (
-        <header className="border-b border-navy-900 bg-[#0f172a] px-6 py-4">
-          <div className="mx-auto flex max-w-5xl items-center justify-between">
-            <div>
-              <span className="text-base font-semibold text-white">CV Tailor</span>
-              <span className="ml-3 text-xs text-slate-400">Powered by Claude</span>
-            </div>
-            {stage === "review" && segments && (
-              <span className="text-xs text-slate-500">
-                Review your tailored edits below
-              </span>
-            )}
+      <header className="border-b bg-[#0f172a] px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between">
+          <div>
+            <span className="text-base font-semibold text-white">CV Tailor</span>
+            <span className="ml-3 text-xs text-slate-400">Powered by Claude</span>
           </div>
-        </header>
-      )}
+          {stage === "review" && (
+            <span className="text-xs text-slate-500">Review your tailored edits below</span>
+          )}
+        </div>
+      </header>
 
-      {/* Stage content */}
-      {stage === "password" && <PasswordGate onUnlock={handleUnlock} />}
-      {stage === "upload" && (
-        <UploadScreen onAnalyze={handleAnalyze} />
-      )}
-      {stage === "review" && segments && (
-        <ReviewScreen segments={segments} onReset={handleReset} />
+      {stage === "upload" && <UploadScreen onComplete={handleComplete} />}
+      {stage === "review" && (
+        <ReviewScreen segments={segments} originalFile={originalFile} onReset={handleReset} />
       )}
     </div>
   );

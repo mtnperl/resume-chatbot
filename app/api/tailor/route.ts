@@ -17,16 +17,16 @@ Rules:
 - Do NOT invent experience, credentials, or achievements the person doesn't have.
 - Keep changes concise and professional — this is a real CV, not marketing copy.
 - Aim for 8-15 targeted edits. Do not change everything.
-- Unchanged segments: set "changed": false, "edited" equals "original".
-- Changed segments: set "changed": true, "edited" has the improved text.
+- Unchanged segments: set "changed": false, "edited" equals "original", "reason" is empty string.
+- Changed segments: set "changed": true, "edited" has the improved text, "reason" explains in one short sentence WHY this specific change was made (what it matches in the job description or why it's stronger phrasing).
 - Break the CV into logical segments (sentences, bullet points, short paragraphs). Do not make segments longer than 3 sentences.
 
 Return ONLY a valid JSON array. No markdown, no explanation, no backticks. Start with [ and end with ].
 
 Format:
 [
-  {"original": "...", "edited": "...", "changed": false},
-  {"original": "...", "edited": "...", "changed": true},
+  {"original": "...", "edited": "...", "changed": false, "reason": ""},
+  {"original": "...", "edited": "...", "changed": true, "reason": "Matches the job's emphasis on enterprise partnerships."},
   ...
 ]`;
 
@@ -56,7 +56,6 @@ export async function POST(req: NextRequest) {
     const raw =
       response.content[0].type === "text" ? response.content[0].text.trim() : "";
 
-    // Prepend the prefilled "[" and find the closing "]"
     const text = "[" + raw;
     const end = text.lastIndexOf("]");
     if (end === -1) throw new SyntaxError("No closing bracket in response");
