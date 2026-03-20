@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -14,6 +14,106 @@ type Segment = {
 };
 
 type Stage = "upload" | "review" | "cover-letter";
+
+// ─── Retro loader ─────────────────────────────────────────────────────────────
+
+const BOOT_MESSAGES = [
+  "LOADING CV.EXE...",
+  "INITIALIZING WORD PROCESSOR v2.4...",
+  "SCANNING WORK HISTORY...",
+  "PARSING ACHIEVEMENTS...",
+  "CROSS-REFERENCING JOB REQUIREMENTS...",
+  "ANALYZING SKILL GAPS...",
+  "DETECTING POWER WORDS...",
+  "REMOVING CORPORATE BUZZWORDS...",
+  "CALIBRATING KEYWORD DENSITY...",
+  "OPTIMIZING BULLET POINTS...",
+  "POLISHING CAREER NARRATIVE...",
+  "RUNNING RECRUITER SIMULATION...",
+  "FINALIZING EDITS...",
+  "ALMOST THERE...",
+];
+
+function RetroLoader() {
+  const [progress, setProgress] = useState(0);
+  const [msgIdx, setMsgIdx] = useState(0);
+  const [blink, setBlink] = useState(true);
+  const [log, setLog] = useState<string[]>([BOOT_MESSAGES[0]]);
+
+  useEffect(() => {
+    // Progress bar — slow ramp, stalls near 90% waiting for API
+    const progressTimer = setInterval(() => {
+      setProgress((p) => {
+        if (p >= 92) return p;
+        const step = p < 30 ? 3 : p < 60 ? 2 : p < 80 ? 1.5 : 0.4;
+        return Math.min(92, p + step);
+      });
+    }, 280);
+
+    // Cycle messages
+    const msgTimer = setInterval(() => {
+      setMsgIdx((i) => {
+        const next = Math.min(i + 1, BOOT_MESSAGES.length - 1);
+        setLog((prev) => [...prev.slice(-6), BOOT_MESSAGES[next]]);
+        return next;
+      });
+    }, 1100);
+
+    // Blinking cursor
+    const blinkTimer = setInterval(() => setBlink((b) => !b), 530);
+
+    return () => { clearInterval(progressTimer); clearInterval(msgTimer); clearInterval(blinkTimer); };
+  }, []);
+
+  const filled = Math.round(progress / 100 * 28);
+  const bar = "█".repeat(filled) + "░".repeat(28 - filled);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]">
+      {/* Scanline overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.06]"
+        style={{ backgroundImage: "repeating-linear-gradient(0deg, #000 0px, #000 1px, transparent 1px, transparent 3px)" }}
+      />
+
+      <div className="w-full max-w-xl px-8">
+        {/* Title */}
+        <p className="font-mono text-[10px] tracking-[0.4em] uppercase text-slate-500 mb-1">CV ADAPTOR v1.0</p>
+        <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-slate-600 mb-8">© 2025 MATHAN PERL SYSTEMS</p>
+
+        {/* Scrolling log */}
+        <div className="mb-6 h-36 overflow-hidden">
+          {log.map((msg, i) => (
+            <p
+              key={i}
+              className="font-mono text-xs leading-6 transition-opacity"
+              style={{ color: i === log.length - 1 ? "#e2e8f0" : "#475569", opacity: i === log.length - 1 ? 1 : 0.4 + i * 0.08 }}
+            >
+              <span className="text-slate-600 mr-2">&gt;</span>{msg}
+            </p>
+          ))}
+          <p className="font-mono text-xs leading-6 text-slate-200">
+            <span className="text-slate-600 mr-2">&gt;</span>
+            <span style={{ opacity: blink ? 1 : 0 }}>█</span>
+          </p>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mb-2">
+          <p className="font-mono text-[10px] text-slate-500 mb-1 tracking-widest uppercase">Processing</p>
+          <p className="font-mono text-sm tracking-wider text-slate-200">
+            [<span className="text-emerald-400">{bar}</span>] {Math.round(progress)}%
+          </p>
+        </div>
+
+        {/* Flavor text */}
+        <p className="mt-6 font-mono text-[10px] text-slate-600 tracking-wider">
+          DO NOT TURN OFF YOUR COMPUTER
+        </p>
+      </div>
+    </div>
+  );
+}
 
 // ─── XML helpers for docx patching ───────────────────────────────────────────
 
@@ -260,6 +360,8 @@ function UploadScreen({ onComplete }: {
 
   const canSubmit = !!cvText && jd.trim().length > 0 && !loading && !parsing;
 
+  if (loading) return <RetroLoader />;
+
   return (
     <div className="mx-auto max-w-5xl px-6 py-14">
       {/* Page title */}
@@ -375,12 +477,7 @@ function UploadScreen({ onComplete }: {
           disabled={!canSubmit}
           className="flex items-center gap-3 bg-slate-900 px-8 py-3.5 font-mono text-xs tracking-[0.15em] uppercase text-white transition-all hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30"
         >
-          {loading ? (
-            <>
-              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Analyzing...
-            </>
-          ) : "Tailor CV →"}
+          Adapt CV →
         </button>
       </div>
     </div>
