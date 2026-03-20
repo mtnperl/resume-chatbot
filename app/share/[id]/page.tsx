@@ -38,7 +38,7 @@ export default async function SharePage({
             Shared from the resume chatbot
           </p>
           <a
-            href="/"
+            href="/jobchat"
             className="mt-3 inline-block rounded-full px-4 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
             style={{ background: "var(--send-bg)", color: "#fff" }}
           >
@@ -86,7 +86,7 @@ export default async function SharePage({
 
         {/* Footer */}
         <div className="mt-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-          <a href="/" className="underline hover:opacity-80">
+          <a href="/jobchat" className="underline hover:opacity-80">
             Ask your own questions →
           </a>
         </div>
