@@ -281,7 +281,7 @@ async function parsePdf(file: File): Promise<string> {
   let pdfjsLib: typeof import("pdfjs-dist");
   try { pdfjsLib = await import("pdfjs-dist"); }
   catch { throw new Error("PDF parser failed to load. Try a .docx file instead."); }
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const pages: string[] = [];
