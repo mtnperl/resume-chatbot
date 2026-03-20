@@ -27,19 +27,22 @@ Return ONLY raw JSON, no markdown, no backticks:
 
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      system: "You are a JSON API. Respond with raw JSON only — no markdown, no backticks, no explanation, no text before or after the JSON object.",
-      messages: [{ role: "user", content: prompt }],
+      max_tokens: 1500,
+      system: "You are a JSON API. Output only the JSON object — no markdown, no backticks, no explanation.",
+      messages: [
+        { role: "user", content: prompt },
+        { role: "assistant", content: "{" }, // prefill forces response to start with {
+      ],
     });
 
-    const text =
+    const raw =
       response.content[0].type === "text" ? response.content[0].text.trim() : "";
 
-    // Extract JSON object robustly — find first { and last }
-    const start = text.indexOf("{");
+    // Prepend the prefilled "{" and find closing "}"
+    const text = "{" + raw;
     const end = text.lastIndexOf("}");
-    if (start === -1 || end === -1) throw new SyntaxError("No JSON object found in response");
-    const cleaned = text.slice(start, end + 1);
+    if (end === -1) throw new SyntaxError("No closing brace in response");
+    const cleaned = text.slice(0, end + 1);
 
     const result = JSON.parse(cleaned);
     return NextResponse.json(result);

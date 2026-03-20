@@ -1,5 +1,77 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const LOADER_FRAMES = [
+  "SCANNING CANDIDATE DATABASE...",
+  "LOADING SKILL MATRIX.........",
+  "CROSS-REFERENCING RESUME.....",
+  "ANALYZING EXPERIENCE LEVEL...",
+  "CALCULATING FIT SCORE........",
+  "RUNNING FINAL CHECKS.........",
+];
+
+function RetroLoader() {
+  const [frame, setFrame] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [dots, setDots] = useState("");
+
+  useEffect(() => {
+    const msgTimer = setInterval(() => {
+      setFrame((f) => (f + 1) % LOADER_FRAMES.length);
+    }, 1100);
+    return () => clearInterval(msgTimer);
+  }, []);
+
+  useEffect(() => {
+    const progTimer = setInterval(() => {
+      setProgress((p) => {
+        if (p >= 94) return p; // stall near 100 until real response
+        return p + Math.random() * 6;
+      });
+    }, 300);
+    return () => clearInterval(progTimer);
+  }, []);
+
+  useEffect(() => {
+    const dotTimer = setInterval(() => {
+      setDots((d) => (d.length >= 3 ? "" : d + "."));
+    }, 400);
+    return () => clearInterval(dotTimer);
+  }, []);
+
+  const filled = Math.round((Math.min(progress, 94) / 100) * 20);
+  const empty = 20 - filled;
+  const bar = "█".repeat(filled) + "░".repeat(empty);
+  const pct = Math.round(Math.min(progress, 94));
+
+  return (
+    <div
+      style={{
+        fontFamily: "'Courier New', Courier, monospace",
+        background: "#0a0a0a",
+        border: "2px solid #00ff41",
+        borderRadius: 4,
+        padding: "24px 20px",
+        color: "#00ff41",
+        textAlign: "center",
+        boxShadow: "0 0 20px #00ff4144, inset 0 0 20px #00000066",
+      }}
+    >
+      <div style={{ fontSize: 11, letterSpacing: "0.15em", marginBottom: 18, opacity: 0.7 }}>
+        ▶ ROLE FIT ANALYZER v2.4 ◀
+      </div>
+      <div style={{ fontSize: 13, letterSpacing: "0.08em", marginBottom: 20, minHeight: 18 }}>
+        {LOADER_FRAMES[frame]}
+      </div>
+      <div style={{ fontSize: 15, letterSpacing: "0.05em", marginBottom: 8 }}>
+        [{bar}] {pct}%
+      </div>
+      <div style={{ fontSize: 11, opacity: 0.5, letterSpacing: "0.12em" }}>
+        PLEASE WAIT{dots}
+      </div>
+    </div>
+  );
+}
 
 type RoleFitResult = {
   score: number;
@@ -184,35 +256,41 @@ export default function RoleFitAnalyzer({ fullWidth = false }: { fullWidth?: boo
 
         {!result ? (
           <>
-            <textarea
-              value={jd}
-              onChange={(e) => setJd(e.target.value)}
-              placeholder="Paste the full job description here..."
-              rows={8}
-              className="w-full text-sm leading-relaxed"
-              style={{
-                background: "var(--modal-input-bg)",
-                border: "1px solid var(--modal-input-border)",
-                borderRadius: 12,
-                padding: "12px 14px",
-                color: "var(--text-primary)",
-                outline: "none",
-                resize: "vertical",
-              }}
-            />
-            {error && (
-              <p className="mt-2 text-xs" style={{ color: "#ef4444" }}>
-                {error}
-              </p>
+            {loading ? (
+              <RetroLoader />
+            ) : (
+              <>
+                <textarea
+                  value={jd}
+                  onChange={(e) => setJd(e.target.value)}
+                  placeholder="Paste the full job description here..."
+                  rows={8}
+                  className="w-full text-sm leading-relaxed"
+                  style={{
+                    background: "var(--modal-input-bg)",
+                    border: "1px solid var(--modal-input-border)",
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    color: "var(--text-primary)",
+                    outline: "none",
+                    resize: "vertical",
+                  }}
+                />
+                {error && (
+                  <p className="mt-2 text-xs" style={{ color: "#ef4444" }}>
+                    {error}
+                  </p>
+                )}
+                <button
+                  onClick={analyze}
+                  disabled={!jd.trim()}
+                  className="mt-3 w-full rounded-full py-2.5 text-sm font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{ background: "var(--send-bg)", boxShadow: "var(--send-shadow)" }}
+                >
+                  Analyze Fit →
+                </button>
+              </>
             )}
-            <button
-              onClick={analyze}
-              disabled={loading || !jd.trim()}
-              className="mt-3 w-full rounded-full py-2.5 text-sm font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
-              style={{ background: "var(--send-bg)", boxShadow: "var(--send-shadow)" }}
-            >
-              {loading ? "Analyzing..." : "Analyze Fit →"}
-            </button>
           </>
         ) : (
           <div>
