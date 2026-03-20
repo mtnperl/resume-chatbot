@@ -176,6 +176,14 @@ async function parsePdf(file: File): Promise<string> {
   return pages.join("\n\n");
 }
 
+// ─── Filename helper ──────────────────────────────────────────────────────────
+
+function getTailoredFilename(originalName: string): string {
+  const dot = originalName.lastIndexOf(".");
+  const base = dot === -1 ? originalName : originalName.slice(0, dot);
+  return `${base} v1.0.docx`;
+}
+
 // ─── Upload Screen ────────────────────────────────────────────────────────────
 
 function UploadScreen({ onComplete }: {
@@ -185,12 +193,33 @@ function UploadScreen({ onComplete }: {
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [jd, setJd] = useState("");
+  const [jdMode, setJdMode] = useState<"paste" | "url">("paste");
+  const [jdUrl, setJdUrl] = useState("");
+  const [fetchingUrl, setFetchingUrl] = useState(false);
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function fetchJdFromUrl() {
+    if (!jdUrl.trim()) return;
+    setFetchingUrl(true); setUrlError(null);
+    try {
+      const res = await fetch("/api/fetch-jd", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: jdUrl }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setJd(data.text);
+      setJdMode("paste"); // switch to text view so user can review/edit
+    } catch (err) {
+      setUrlError(err instanceof Error ? err.message : "Failed to fetch URL");
+    } finally { setFetchingUrl(false); }
+  }
 
   const handleFile = useCallback(async (file: File) => {
     if (file.size > 10 * 1024 * 1024) { setParseError("File too large — maximum 10 MB."); return; }
@@ -284,13 +313,55 @@ function UploadScreen({ onComplete }: {
 
         {/* Job Description */}
         <div className="flex flex-col gap-2">
-          <label className="font-mono text-xs tracking-[0.15em] uppercase text-slate-400">Job Description</label>
-          <textarea
-            value={jd}
-            onChange={(e) => setJd(e.target.value)}
-            placeholder="Paste the full job description here..."
-            className="min-h-[300px] flex-1 resize-none border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-300 focus:border-slate-900 focus:ring-0"
-          />
+          <div className="flex items-center justify-between">
+            <label className="font-mono text-xs tracking-[0.15em] uppercase text-slate-400">Job Description</label>
+            <div className="flex items-center border border-slate-200 bg-white">
+              <button
+                onClick={() => setJdMode("paste")}
+                className={`px-3 py-1 font-mono text-[10px] tracking-wider uppercase transition-colors ${jdMode === "paste" ? "bg-slate-900 text-white" : "text-slate-400 hover:text-slate-600"}`}
+              >Paste</button>
+              <button
+                onClick={() => setJdMode("url")}
+                className={`px-3 py-1 font-mono text-[10px] tracking-wider uppercase transition-colors ${jdMode === "url" ? "bg-slate-900 text-white" : "text-slate-400 hover:text-slate-600"}`}
+              >Link</button>
+            </div>
+          </div>
+
+          {jdMode === "url" ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={jdUrl}
+                  onChange={(e) => { setJdUrl(e.target.value); setUrlError(null); }}
+                  onKeyDown={(e) => e.key === "Enter" && fetchJdFromUrl()}
+                  placeholder="https://jobs.company.com/role/..."
+                  className="flex-1 border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-300 focus:border-slate-900"
+                />
+                <button
+                  onClick={fetchJdFromUrl}
+                  disabled={!jdUrl.trim() || fetchingUrl}
+                  className="flex items-center gap-2 bg-slate-900 px-5 py-3 font-mono text-xs tracking-wider uppercase text-white hover:bg-slate-700 transition-colors disabled:opacity-40"
+                >
+                  {fetchingUrl ? <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" /> : "Fetch"}
+                </button>
+              </div>
+              {urlError && <p className="font-mono text-xs text-red-500">{urlError}</p>}
+              <p className="font-mono text-xs text-slate-400">Works with Greenhouse, Lever, Workday, and most company career pages. LinkedIn may not work.</p>
+              {jd && (
+                <div className="border border-emerald-200 bg-emerald-50 px-3 py-2 font-mono text-xs text-emerald-700">
+                  ✓ Job description fetched ({jd.length.toLocaleString()} chars) — switching to text view to review
+                </div>
+              )}
+            </div>
+          ) : (
+            <textarea
+              value={jd}
+              onChange={(e) => setJd(e.target.value)}
+              placeholder="Paste the full job description here..."
+              className="min-h-[300px] flex-1 resize-none border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-300 focus:border-slate-900 focus:ring-0"
+            />
+          )}
         </div>
       </div>
 
@@ -371,12 +442,12 @@ function ReviewScreen({ segments: initialSegments, originalFile, jd, cvText, onR
         const xml = await xmlFile.async("string");
         zip.file("word/document.xml", applyEditsToXml(xml, segments));
         const blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-        triggerDownload(blob, "CV_Tailored.docx");
+        triggerDownload(blob, getTailoredFilename(originalFile.name));
       } else {
         const finalText = segments.map((s) => (!s.changed || s.status === "reverted") ? s.original : s.status === "approved" ? s.edited : s.original).join(" ");
         const paras = finalText.split(/\n+/).filter((l) => l.trim()).map((l) => new Paragraph({ children: [new TextRun({ text: l.trim(), size: 24, font: "Calibri" })], spacing: { after: 160 } }));
         const doc = new Document({ sections: [{ children: paras }] });
-        triggerDownload(await Packer.toBlob(doc), "CV_Tailored.docx");
+        triggerDownload(await Packer.toBlob(doc), getTailoredFilename(originalFile?.name ?? "CV.docx"));
       }
     } catch (err) {
       console.error("Download failed:", err);
@@ -650,11 +721,19 @@ function CoverLetterScreen({ segments, cvText, jd, onBack, onReset }: {
     } finally { setLoading(false); }
   }
 
-  function downloadTxt() {
+  async function downloadDocx() {
     if (!coverLetter) return;
-    const blob = new Blob([coverLetter], { type: "text/plain" });
+    const paras = coverLetter
+      .split(/\n\n+/)
+      .filter((p) => p.trim())
+      .map((p) => new Paragraph({
+        children: [new TextRun({ text: p.trim(), size: 24, font: "Calibri" })],
+        spacing: { after: 240 },
+      }));
+    const doc = new Document({ sections: [{ children: paras }] });
+    const blob = await Packer.toBlob(doc);
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "Cover_Letter.txt"; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = "Cover_Letter.docx"; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -707,9 +786,9 @@ function CoverLetterScreen({ segments, cvText, jd, onBack, onReset }: {
                 className="font-mono text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors">
                 Regenerate
               </button>
-              <button onClick={downloadTxt}
+              <button onClick={downloadDocx}
                 className="border border-slate-900 bg-slate-900 px-4 py-1.5 font-mono text-xs tracking-wider uppercase text-white hover:bg-slate-700 transition-colors">
-                Download .txt
+                Download .docx
               </button>
             </div>
           </div>
@@ -754,8 +833,7 @@ export default function CVTailorPage() {
       <header className="border-b border-slate-800 bg-[#0f172a]">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <span className="font-mono text-xs tracking-[0.3em] uppercase text-white">CV Tailor</span>
-            <span className="font-mono text-[10px] text-slate-500">by Claude</span>
+            <span className="font-mono text-xs tracking-[0.3em] uppercase text-white">CV Adaptor</span>
           </div>
           <div className="flex items-center gap-2">
             {(["upload", "review", "cover-letter"] as Stage[]).map((s, i) => (
