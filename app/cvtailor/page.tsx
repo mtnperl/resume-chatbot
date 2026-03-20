@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Document, Packer, Paragraph, TextRun } from "docx";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, convertInchesToTwip } from "docx";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -14,6 +14,16 @@ type Segment = {
 };
 
 type Stage = "upload" | "review" | "cover-letter";
+
+// ─── PDF structured block types ───────────────────────────────────────────────
+
+type BlockKind = "name" | "section" | "bullet" | "body";
+
+type StructuredBlock = {
+  text: string;
+  kind: BlockKind;
+  indent: number;
+};
 
 // ─── Retro loader ─────────────────────────────────────────────────────────────
 
@@ -277,20 +287,124 @@ async function parseDocx(file: File): Promise<string> {
   return result.value;
 }
 
-async function parsePdf(file: File): Promise<string> {
+async function parsePdfStructured(file: File): Promise<{ text: string; blocks: StructuredBlock[] }> {
   let pdfjsLib: typeof import("pdfjs-dist");
   try { pdfjsLib = await import("pdfjs-dist"); }
   catch { throw new Error("PDF parser failed to load. Try a .docx file instead."); }
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  const pages: string[] = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+
+  // Collect all text items with position/size info
+  type RawItem = { str: string; height: number; tx: number; ty: number; page: number; pageHeight: number };
+  const allItems: RawItem[] = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const viewport = page.getViewport({ scale: 1 });
     const content = await page.getTextContent();
-    pages.push(content.items.map((item) => ("str" in item ? item.str : "")).join(" "));
+    for (const item of content.items) {
+      if (!("str" in item) || !item.str.trim() || item.height <= 0) continue;
+      allItems.push({ str: item.str, height: item.height, tx: item.transform[4], ty: item.transform[5], page: p, pageHeight: viewport.height });
+    }
   }
-  return pages.join("\n\n");
+
+  if (allItems.length === 0) return { text: "", blocks: [] };
+
+  // ── Percentile-based font size classification ──────────────────────────────
+  const heights = allItems.map(i => i.height).sort((a, b) => a - b);
+  const p50 = heights[Math.floor(heights.length * 0.5)];
+  const sectionThreshold = p50 * 1.15; // font meaningfully larger than body
+  const maxHeight = heights[heights.length - 1];
+  const leftMargin = Math.min(...allItems.map(i => i.tx));
+
+  // ── Group items into visual lines (same ty within half a char height) ──────
+  type Line = { text: string; height: number; tx: number; ty: number; page: number; pageHeight: number };
+  const lines: Line[] = [];
+  let current: Line | null = null;
+
+  const sorted = [...allItems].sort((a, b) => a.page !== b.page ? a.page - b.page : b.ty - a.ty || a.tx - b.tx);
+  for (const item of sorted) {
+    if (current && current.page === item.page && Math.abs(item.ty - current.ty) < current.height * 0.6) {
+      current.text += item.str;
+      current.height = Math.max(current.height, item.height);
+    } else {
+      if (current) lines.push(current);
+      current = { text: item.str, height: item.height, tx: item.tx, ty: item.ty, page: item.page, pageHeight: item.pageHeight };
+    }
+  }
+  if (current) lines.push(current);
+
+  // ── Group lines into paragraphs (gap > 1.2× body, or kind change) ─────────
+  const BULLET_RE = /^[\s]*[•·\-–—○◦▪▸►*]\s/;
+  const blocks: StructuredBlock[] = [];
+  let paraLines: Line[] = [];
+
+  function flushPara() {
+    if (paraLines.length === 0) return;
+    const text = paraLines.map(l => l.text.trim()).join(" ").replace(/\s{2,}/g, " ").trim();
+    if (!text) { paraLines = []; return; }
+    const h = Math.max(...paraLines.map(l => l.height));
+    const tx = paraLines[0].tx;
+    const isFirstPage = paraLines[0].page === 1;
+    const nearTop = paraLines[0].ty > paraLines[0].pageHeight * 0.8;
+    let kind: BlockKind;
+    if (isFirstPage && nearTop && h >= maxHeight * 0.9) {
+      kind = "name";
+    } else if (h >= sectionThreshold || (text === text.toUpperCase() && text.length < 50 && !BULLET_RE.test(text))) {
+      kind = "section";
+    } else if (BULLET_RE.test(text) || tx - leftMargin > 15) {
+      kind = "bullet";
+    } else {
+      kind = "body";
+    }
+    blocks.push({ text, kind, indent: Math.max(0, tx - leftMargin) });
+    paraLines = [];
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const prev = i > 0 ? lines[i - 1] : null;
+    if (prev && (prev.page !== line.page || (prev.ty - line.ty) > p50 * 1.2)) flushPara();
+    paraLines.push(line);
+  }
+  flushPara();
+
+  const text = blocks.map(b => b.text).join("\n");
+  return { text, blocks };
+}
+
+function stripBulletChar(text: string): string {
+  return text.replace(/^[\s]*[•·\-–—○◦▪▸►*]\s*/, "").trim();
+}
+
+function blockToParagraph(block: StructuredBlock): Paragraph {
+  const text = block.text.trim();
+  switch (block.kind) {
+    case "name":
+      return new Paragraph({
+        children: [new TextRun({ text, bold: true, size: 32, font: "Calibri" })],
+        spacing: { after: 80 },
+        alignment: AlignmentType.LEFT,
+      });
+    case "section":
+      return new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        children: [new TextRun({ text, bold: true, size: 24, font: "Calibri", allCaps: true })],
+        spacing: { before: 240, after: 80 },
+        border: { bottom: { style: "single", size: 6, color: "333333", space: 1 } },
+      });
+    case "bullet":
+      return new Paragraph({
+        children: [new TextRun({ text: stripBulletChar(text), size: 20, font: "Calibri" })],
+        bullet: { level: 0 },
+        indent: { left: convertInchesToTwip(0.25) },
+        spacing: { after: 60 },
+      });
+    default:
+      return new Paragraph({
+        children: [new TextRun({ text, size: 20, font: "Calibri" })],
+        spacing: { after: 80 },
+      });
+  }
 }
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
@@ -314,11 +428,12 @@ function getTailoredFilename(originalName: string): string {
 // ─── Upload Screen ────────────────────────────────────────────────────────────
 
 function UploadScreen({ onComplete }: {
-  onComplete: (segments: Segment[], file: File, jd: string, cvText: string) => void;
+  onComplete: (segments: Segment[], file: File, jd: string, cvText: string, blocks: StructuredBlock[] | null) => void;
 }) {
   const [cvText, setCvText] = useState<string | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [pdfBlocksLocal, setPdfBlocksLocal] = useState<StructuredBlock[] | null>(null);
   const [jd, setJd] = useState("");
   const [jdMode, setJdMode] = useState<"paste" | "url">("paste");
   const [jdUrl, setJdUrl] = useState("");
@@ -350,12 +465,17 @@ function UploadScreen({ onComplete }: {
 
   const handleFile = useCallback(async (file: File) => {
     if (file.size > 10 * 1024 * 1024) { setParseError("File too large — maximum 10 MB."); return; }
-    setParseError(null); setCvText(null); setFileName(null); setCvFile(null); setParsing(true);
+    setParseError(null); setCvText(null); setFileName(null); setCvFile(null); setPdfBlocksLocal(null); setParsing(true);
     try {
       let text = "";
-      if (file.name.endsWith(".docx")) text = await parseDocx(file);
-      else if (file.name.endsWith(".pdf")) text = await parsePdf(file);
-      else { setParseError("Only .docx and .pdf files are supported."); setParsing(false); return; }
+      if (file.name.endsWith(".docx")) {
+        text = await parseDocx(file);
+        setPdfBlocksLocal(null);
+      } else if (file.name.endsWith(".pdf")) {
+        const { text: pdfText, blocks } = await parsePdfStructured(file);
+        text = pdfText;
+        setPdfBlocksLocal(blocks);
+      } else { setParseError("Only .docx and .pdf files are supported."); setParsing(false); return; }
       if (text.trim().length < 50) { setParseError("Could not extract text. Try a different format."); setParsing(false); return; }
       setCvText(text); setCvFile(file); setFileName(file.name);
     } catch (err) {
@@ -380,7 +500,7 @@ function UploadScreen({ onComplete }: {
       if (data.error) throw new Error(data.error);
       const segments: Segment[] = data.segments.map((s: Omit<Segment, "status">) => ({ ...s, status: "pending" }));
       track("cv_adaptor_tailored");
-      onComplete(segments, cvFile, jd, cvText);
+      onComplete(segments, cvFile, jd, cvText, pdfBlocksLocal);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Something went wrong");
     } finally { setLoading(false); }
@@ -514,11 +634,12 @@ function UploadScreen({ onComplete }: {
 
 // ─── Review Screen ────────────────────────────────────────────────────────────
 
-function ReviewScreen({ segments: initialSegments, originalFile, jd, cvText, onReset, onCoverLetter }: {
+function ReviewScreen({ segments: initialSegments, originalFile, jd, cvText, pdfBlocks, onReset, onCoverLetter }: {
   segments: Segment[];
   originalFile: File | null;
   jd: string;
   cvText: string;
+  pdfBlocks: StructuredBlock[] | null;
   onReset: () => void;
   onCoverLetter: (segments: Segment[]) => void;
 }) {
@@ -570,9 +691,31 @@ function ReviewScreen({ segments: initialSegments, originalFile, jd, cvText, onR
         track("cv_adaptor_download_cv");
         triggerDownload(blob, getTailoredFilename(originalFile.name));
       } else {
-        const finalText = segments.map((s) => (!s.changed || s.status === "reverted") ? s.original : s.status === "approved" ? s.edited : s.original).join(" ");
-        const paras = finalText.split(/\n+/).filter((l) => l.trim()).map((l) => new Paragraph({ children: [new TextRun({ text: l.trim(), size: 24, font: "Calibri" })], spacing: { after: 160 } }));
-        const doc = new Document({ sections: [{ children: paras }] });
+        // PDF path — reconstruct structured DOCX from classified blocks
+        const approved = segments.filter((s) => s.changed && s.status === "approved" && s.original !== s.edited);
+        let paragraphs: Paragraph[];
+
+        if (pdfBlocks && pdfBlocks.length > 0) {
+          // Deep-copy blocks, apply text patches to matching blocks
+          const patched = pdfBlocks.map((b) => ({ ...b }));
+          for (const seg of approved) {
+            const origTrimmed = seg.original.trim();
+            const editedTrimmed = seg.edited.trim();
+            for (const block of patched) {
+              if (block.text.includes(origTrimmed)) {
+                block.text = block.text.replace(origTrimmed, editedTrimmed);
+                break;
+              }
+            }
+          }
+          paragraphs = patched.filter((b) => b.text.trim()).map(blockToParagraph);
+        } else {
+          // Fallback: flat text (old behaviour)
+          const finalText = segments.map((s) => (!s.changed || s.status === "reverted") ? s.original : s.status === "approved" ? s.edited : s.original).join(" ");
+          paragraphs = finalText.split(/\n+/).filter((l) => l.trim()).map((l) => new Paragraph({ children: [new TextRun({ text: l.trim(), size: 20, font: "Calibri" })], spacing: { after: 160 } }));
+        }
+
+        const doc = new Document({ sections: [{ children: paragraphs }] });
         track("cv_adaptor_download_cv");
         triggerDownload(await Packer.toBlob(doc), getTailoredFilename(originalFile?.name ?? "CV.docx"));
       }
@@ -935,9 +1078,10 @@ export default function CVTailorPage() {
   const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [jd, setJd] = useState("");
   const [cvText, setCvText] = useState("");
+  const [pdfBlocks, setPdfBlocks] = useState<StructuredBlock[] | null>(null);
 
-  function handleUploadComplete(segs: Segment[], file: File, jobDesc: string, cv: string) {
-    setSegments(segs); setOriginalFile(file); setJd(jobDesc); setCvText(cv); setStage("review");
+  function handleUploadComplete(segs: Segment[], file: File, jobDesc: string, cv: string, blocks: StructuredBlock[] | null) {
+    setSegments(segs); setOriginalFile(file); setJd(jobDesc); setCvText(cv); setPdfBlocks(blocks); setStage("review");
   }
 
   function handleCoverLetter(segs: Segment[]) {
@@ -945,7 +1089,7 @@ export default function CVTailorPage() {
   }
 
   function handleReset() {
-    setSegments([]); setOriginalFile(null); setJd(""); setCvText(""); setStage("upload");
+    setSegments([]); setOriginalFile(null); setJd(""); setCvText(""); setPdfBlocks(null); setStage("upload");
   }
 
   const stageLabel = stage === "upload" ? "Upload" : stage === "review" ? "Review Edits" : "Cover Letter";
@@ -975,7 +1119,7 @@ export default function CVTailorPage() {
       {stage === "review" && (
         <ReviewScreen
           segments={segments} originalFile={originalFile}
-          jd={jd} cvText={cvText}
+          jd={jd} cvText={cvText} pdfBlocks={pdfBlocks}
           onReset={handleReset} onCoverLetter={handleCoverLetter}
         />
       )}
