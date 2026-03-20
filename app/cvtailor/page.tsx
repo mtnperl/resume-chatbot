@@ -13,7 +13,7 @@ type Segment = {
   status: "pending" | "approved" | "reverted";
 };
 
-type Stage = "upload" | "review";
+type Stage = "upload" | "review" | "cover-letter";
 
 // ─── XML helpers for docx patching ───────────────────────────────────────────
 
@@ -70,12 +70,10 @@ function patchParagraph(para: string, orig: string, edit: string): string {
   if (!paraText.includes(orig)) return para;
 
   // Try: orig is fully inside one <w:t>
-  const esc = orig.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const singleRe = new RegExp(`(<w:t(?:\\s[^>]*)?>(?:[^<]*)?)${xmlEscape(orig).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}((?:[^<]*)<\\/w:t>)`);
   if (singleRe.test(para)) {
     return para.replace(singleRe, `$1${xmlEscape(edit)}$2`);
   }
-  void esc;
 
   // Text spans multiple runs — patch at run level
   const runsStart = para.search(/<w:r[ >]/);
@@ -133,7 +131,42 @@ function applyEditsToXml(xml: string, segments: Segment[]): string {
   return result;
 }
 
-// ─── File Parser ──────────────────────────────────────────────────────────────
+// ─── ATS Keyword Score ────────────────────────────────────────────────────────
+
+const STOP_WORDS = new Set([
+  "the", "a", "an", "in", "on", "at", "to", "for", "of", "with", "by", "from",
+  "is", "are", "was", "were", "be", "been", "have", "has", "had", "do", "does",
+  "did", "will", "would", "could", "should", "may", "might", "must", "shall",
+  "can", "you", "we", "they", "it", "this", "that", "these", "those", "our",
+  "their", "your", "its", "or", "not", "but", "as", "if", "so", "up", "out",
+  "all", "when", "who", "which", "what", "how", "why", "where", "there", "here",
+  "and", "also", "more", "some", "any", "each", "than", "then", "into", "over",
+  "after", "about", "such", "both", "well", "just", "only", "very", "own",
+]);
+
+function extractKeywords(text: string): string[] {
+  return [
+    ...new Set(
+      text
+        .toLowerCase()
+        .replace(/[^\w\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 4 && !STOP_WORDS.has(w))
+    ),
+  ];
+}
+
+function getAtsScore(jd: string, cvText: string): { matched: string[]; missed: string[]; score: number } {
+  const jdKeywords = extractKeywords(jd).slice(0, 30);
+  if (jdKeywords.length === 0) return { matched: [], missed: [], score: 0 };
+  const cvLower = cvText.toLowerCase();
+  const matched = jdKeywords.filter((k) => cvLower.includes(k));
+  const missed = jdKeywords.filter((k) => !cvLower.includes(k));
+  const score = Math.round((matched.length / jdKeywords.length) * 100);
+  return { matched, missed, score };
+}
+
+// ─── File Parsers ─────────────────────────────────────────────────────────────
 
 async function parseDocx(file: File): Promise<string> {
   const mammoth = await import("mammoth");
@@ -143,7 +176,12 @@ async function parseDocx(file: File): Promise<string> {
 }
 
 async function parsePdf(file: File): Promise<string> {
-  const pdfjsLib = await import("pdfjs-dist");
+  let pdfjsLib: typeof import("pdfjs-dist");
+  try {
+    pdfjsLib = await import("pdfjs-dist");
+  } catch {
+    throw new Error("PDF parser failed to load. Please try a .docx file instead.");
+  }
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -156,12 +194,36 @@ async function parsePdf(file: File): Promise<string> {
   return pages.join("\n\n");
 }
 
+// ─── Info tooltip ─────────────────────────────────────────────────────────────
+
+function InfoTip({ reason }: { reason: string }) {
+  const [open, setOpen] = useState(false);
+  if (!reason) return null;
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className="ml-1 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200 transition-colors text-[10px] font-semibold"
+        title="Why this change?"
+      >
+        i
+      </button>
+      {open && (
+        <span className="absolute left-6 top-0 z-50 w-56 rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs text-gray-700 shadow-lg">
+          {reason}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ─── Upload Screen ────────────────────────────────────────────────────────────
 
 function UploadScreen({
   onComplete,
 }: {
-  onComplete: (segments: Segment[], file: File) => void;
+  onComplete: (segments: Segment[], file: File, jd: string, cvText: string) => void;
 }) {
   const [cvText, setCvText] = useState<string | null>(null);
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -175,6 +237,10 @@ function UploadScreen({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setParseError("File is too large. Please use a file under 10 MB.");
+      return;
+    }
     setParseError(null);
     setCvText(null);
     setFileName(null);
@@ -191,11 +257,16 @@ function UploadScreen({
         setParsing(false);
         return;
       }
+      if (text.trim().length < 50) {
+        setParseError("Could not extract text from this file. Try a different format.");
+        setParsing(false);
+        return;
+      }
       setCvText(text);
       setCvFile(file);
       setFileName(file.name);
-    } catch {
-      setParseError("Failed to parse file. Please try a different file.");
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : "Failed to parse file. Please try a different file.");
     } finally {
       setParsing(false);
     }
@@ -227,7 +298,7 @@ function UploadScreen({
         ...s,
         status: "pending",
       }));
-      onComplete(segments, cvFile);
+      onComplete(segments, cvFile, jd, cvText);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -319,48 +390,53 @@ function UploadScreen({
   );
 }
 
-// ─── Info tooltip ─────────────────────────────────────────────────────────────
-
-function InfoTip({ reason }: { reason: string }) {
-  const [open, setOpen] = useState(false);
-  if (!reason) return null;
-  return (
-    <span className="relative inline-flex items-center">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        onBlur={() => setOpen(false)}
-        className="ml-1 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200 transition-colors text-[10px] font-semibold"
-        title="Why this change?"
-      >
-        i
-      </button>
-      {open && (
-        <span className="absolute left-6 top-0 z-50 w-56 rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs text-gray-700 shadow-lg">
-          {reason}
-        </span>
-      )}
-    </span>
-  );
-}
-
 // ─── Review Screen ────────────────────────────────────────────────────────────
 
 function ReviewScreen({
   segments: initialSegments,
   originalFile,
+  jd,
+  cvText,
   onReset,
+  onCoverLetter,
 }: {
   segments: Segment[];
   originalFile: File | null;
+  jd: string;
+  cvText: string;
   onReset: () => void;
+  onCoverLetter: (segments: Segment[]) => void;
 }) {
   const [segments, setSegments] = useState<Segment[]>(initialSegments);
   const [downloading, setDownloading] = useState(false);
+  const [showAts, setShowAts] = useState(false);
+  const [showInterviewPrep, setShowInterviewPrep] = useState(false);
 
   const changed = segments.filter((s) => s.changed);
   const approved = segments.filter((s) => s.changed && s.status === "approved");
   const reverted = segments.filter((s) => s.changed && s.status === "reverted");
   const pending = segments.filter((s) => s.changed && s.status === "pending");
+
+  // Build current CV text from segments for ATS scoring
+  const currentCvText = segments
+    .map((s) => {
+      if (!s.changed || s.status === "reverted") return s.original;
+      if (s.status === "approved") return s.edited;
+      return s.original; // pending — score against original
+    })
+    .join(" ");
+
+  const ats = getAtsScore(jd, currentCvText);
+
+  // Interview prep: extract themes from changed segment reasons
+  const prepThemes = [
+    ...new Set(
+      segments
+        .filter((s) => s.changed && s.reason)
+        .map((s) => s.reason)
+        .slice(0, 8)
+    ),
+  ];
 
   function approve(idx: number) {
     setSegments((prev) => prev.map((s, i) => (i === idx ? { ...s, status: "approved" } : s)));
@@ -377,7 +453,6 @@ function ReviewScreen({
   async function downloadDocx() {
     setDownloading(true);
     try {
-      // If original was .docx — patch the original document's XML
       if (originalFile?.name.endsWith(".docx")) {
         const JSZip = (await import("jszip")).default;
         const zip = await JSZip.loadAsync(await originalFile.arrayBuffer());
@@ -392,7 +467,6 @@ function ReviewScreen({
         });
         triggerDownload(blob, "CV_Tailored.docx");
       } else {
-        // PDF fallback — rebuild clean .docx from text
         const finalText = segments
           .map((s) => {
             if (!s.changed || s.status === "reverted") return s.original;
@@ -425,10 +499,13 @@ function ReviewScreen({
     URL.revokeObjectURL(url);
   }
 
+  const atsColor =
+    ats.score >= 70 ? "text-green-600" : ats.score >= 45 ? "text-amber-600" : "text-red-500";
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
       {/* Summary bar */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white px-6 py-4 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center gap-6 text-sm">
           <span className="text-gray-500">
             <span className="font-semibold text-gray-900">{changed.length}</span> edits suggested
@@ -454,6 +531,12 @@ function ReviewScreen({
               Approve all
             </button>
           )}
+          <button
+            onClick={() => onCoverLetter(segments)}
+            className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-medium text-purple-700 hover:bg-purple-100 transition-colors"
+          >
+            Generate cover letter
+          </button>
           {approved.length > 0 && (
             <button
               onClick={downloadDocx}
@@ -472,6 +555,85 @@ function ReviewScreen({
           </button>
         </div>
       </div>
+
+      {/* ATS score panel */}
+      <div className="mb-4 rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowAts((v) => !v)}
+          className="flex w-full items-center justify-between px-6 py-3 text-sm hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="font-medium text-gray-700">ATS Keyword Match</span>
+            <span className={`text-sm font-semibold ${atsColor}`}>{ats.score}%</span>
+            <span className="text-xs text-gray-400">
+              {ats.matched.length}/{ats.matched.length + ats.missed.length} keywords found
+            </span>
+          </div>
+          <span className="text-gray-400 text-xs">{showAts ? "▲" : "▼"}</span>
+        </button>
+        {showAts && (
+          <div className="border-t border-gray-100 px-6 py-4">
+            {ats.missed.length > 0 && (
+              <div className="mb-3">
+                <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Missing keywords</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ats.missed.slice(0, 15).map((k) => (
+                    <span key={k} className="rounded-md bg-red-50 px-2 py-0.5 text-xs text-red-600 border border-red-100">
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {ats.matched.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Matched keywords</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ats.matched.slice(0, 15).map((k) => (
+                    <span key={k} className="rounded-md bg-green-50 px-2 py-0.5 text-xs text-green-700 border border-green-100">
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Interview prep panel */}
+      {prepThemes.length > 0 && (
+        <div className="mb-4 rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowInterviewPrep((v) => !v)}
+            className="flex w-full items-center justify-between px-6 py-3 text-sm hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <span className="font-medium text-gray-700">Interview Prep</span>
+              <span className="text-xs text-gray-400">{prepThemes.length} key themes from this JD</span>
+            </div>
+            <span className="text-gray-400 text-xs">{showInterviewPrep ? "▲" : "▼"}</span>
+          </button>
+          {showInterviewPrep && (
+            <div className="border-t border-gray-100 px-6 py-4">
+              <p className="mb-3 text-xs text-gray-500">
+                Based on the edits Claude made, these are the themes this role emphasizes. Prepare to discuss each one.
+              </p>
+              <div className="space-y-2">
+                {prepThemes.map((theme, i) => (
+                  <div key={i} className="flex gap-3 items-start">
+                    <span className="mt-0.5 flex-shrink-0 text-xs font-semibold text-purple-500">{i + 1}.</span>
+                    <p className="text-sm text-gray-700">{theme}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-xs text-gray-400">
+                Tip: For each theme, prepare a specific example from your experience using the STAR format (Situation, Task, Action, Result).
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CV content */}
       <div className="rounded-xl border border-gray-100 bg-white px-8 py-8 shadow-sm">
@@ -503,7 +665,6 @@ function ReviewScreen({
                   {isReverted ? (
                     <span className="text-gray-900">{seg.original}</span>
                   ) : (
-                    /* Deleted original — visually prominent */
                     <span
                       className="ml-1 inline-block rounded bg-red-100 px-1 text-xs text-red-600 line-through decoration-red-500 decoration-2"
                       style={{ textDecorationLine: "line-through" }}
@@ -563,22 +724,162 @@ function ReviewScreen({
   );
 }
 
+// ─── Cover Letter Screen ──────────────────────────────────────────────────────
+
+function CoverLetterScreen({
+  segments,
+  cvText,
+  jd,
+  onBack,
+  onReset,
+}: {
+  segments: Segment[];
+  cvText: string;
+  jd: string;
+  onBack: () => void;
+  onReset: () => void;
+}) {
+  const [coverLetter, setCoverLetter] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function generate() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/cover-letter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cvText, jobDescription: jd, segments }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setCoverLetter(data.coverLetter);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function downloadTxt() {
+    if (!coverLetter) return;
+    const blob = new Blob([coverLetter], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Cover_Letter.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-6 py-8">
+      {/* Header bar */}
+      <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white px-6 py-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            ← Back to CV
+          </button>
+          <span className="text-sm font-medium text-gray-700">Cover Letter</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {coverLetter && (
+            <button
+              onClick={downloadTxt}
+              className="rounded-lg bg-[#2563EB] px-5 py-2 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
+            >
+              Download .txt
+            </button>
+          )}
+          <button
+            onClick={onReset}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            Start over
+          </button>
+        </div>
+      </div>
+
+      {/* Main area */}
+      {!coverLetter && !loading && !error && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white px-8 py-16 shadow-sm text-center">
+          <p className="text-sm text-gray-500 max-w-sm mb-6">
+            Claude will write a tailored cover letter based on your CV and the job description, using the changes you approved.
+          </p>
+          <button
+            onClick={generate}
+            className="rounded-lg bg-[#2563EB] px-8 py-3 text-sm font-medium text-white hover:bg-blue-700 transition-all"
+          >
+            Generate cover letter
+          </button>
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-white px-8 py-16 shadow-sm">
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          <p className="text-sm text-gray-500">Writing your cover letter...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
+      )}
+
+      {coverLetter && (
+        <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-3">
+            <span className="text-xs text-gray-400">Edit directly in the box below</span>
+            <button
+              onClick={generate}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+            >
+              Regenerate
+            </button>
+          </div>
+          <textarea
+            value={coverLetter}
+            onChange={(e) => setCoverLetter(e.target.value)}
+            className="w-full resize-none px-8 py-6 text-sm text-gray-900 leading-relaxed outline-none rounded-b-xl min-h-[420px]"
+            spellCheck
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CVTailorPage() {
   const [stage, setStage] = useState<Stage>("upload");
   const [segments, setSegments] = useState<Segment[]>([]);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [jd, setJd] = useState("");
+  const [cvText, setCvText] = useState("");
 
-  function handleComplete(segs: Segment[], file: File) {
+  function handleUploadComplete(segs: Segment[], file: File, jobDesc: string, cv: string) {
     setSegments(segs);
     setOriginalFile(file);
+    setJd(jobDesc);
+    setCvText(cv);
     setStage("review");
+  }
+
+  function handleCoverLetter(segs: Segment[]) {
+    setSegments(segs);
+    setStage("cover-letter");
   }
 
   function handleReset() {
     setSegments([]);
     setOriginalFile(null);
+    setJd("");
+    setCvText("");
     setStage("upload");
   }
 
@@ -594,12 +895,31 @@ export default function CVTailorPage() {
           {stage === "review" && (
             <span className="text-xs text-slate-500">Review your tailored edits below</span>
           )}
+          {stage === "cover-letter" && (
+            <span className="text-xs text-slate-500">Cover letter</span>
+          )}
         </div>
       </header>
 
-      {stage === "upload" && <UploadScreen onComplete={handleComplete} />}
+      {stage === "upload" && <UploadScreen onComplete={handleUploadComplete} />}
       {stage === "review" && (
-        <ReviewScreen segments={segments} originalFile={originalFile} onReset={handleReset} />
+        <ReviewScreen
+          segments={segments}
+          originalFile={originalFile}
+          jd={jd}
+          cvText={cvText}
+          onReset={handleReset}
+          onCoverLetter={handleCoverLetter}
+        />
+      )}
+      {stage === "cover-letter" && (
+        <CoverLetterScreen
+          segments={segments}
+          cvText={cvText}
+          jd={jd}
+          onBack={() => setStage("review")}
+          onReset={handleReset}
+        />
       )}
     </div>
   );

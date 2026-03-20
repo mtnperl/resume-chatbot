@@ -3,26 +3,41 @@ import type { NextRequest } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { kv } from "@vercel/kv";
 
-// Only initialize rate limiter if KV is configured
+// Only initialize rate limiters if KV is configured
 // Fail open if KV env vars are missing (e.g., local dev without Vercel KV)
-let ratelimit: Ratelimit | null = null;
+let chatRatelimit: Ratelimit | null = null;
+let tailorRatelimit: Ratelimit | null = null;
 
 if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-  ratelimit = new Ratelimit({
+  chatRatelimit = new Ratelimit({
     redis: kv,
     limiter: Ratelimit.slidingWindow(20, "1 h"),
     analytics: false,
-    prefix: "resume-chatbot:rl",
+    prefix: "resume-chatbot:rl:chat",
+  });
+  // Tighter limit for tailor — each call uses ~4000 tokens of Sonnet
+  tailorRatelimit = new Ratelimit({
+    redis: kv,
+    limiter: Ratelimit.slidingWindow(5, "1 h"),
+    analytics: false,
+    prefix: "resume-chatbot:rl:tailor",
   });
 }
 
-export async function middleware(request: NextRequest) {
-  // Only rate limit the chat API
-  if (!request.nextUrl.pathname.startsWith("/api/chat")) {
-    return NextResponse.next();
+function getRatelimiter(pathname: string): Ratelimit | null {
+  if (pathname.startsWith("/api/tailor") || pathname.startsWith("/api/cover-letter")) {
+    return tailorRatelimit;
   }
+  if (pathname.startsWith("/api/chat")) {
+    return chatRatelimit;
+  }
+  return null;
+}
 
-  // Fail open if rate limiter not configured
+export async function middleware(request: NextRequest) {
+  const ratelimit = getRatelimiter(request.nextUrl.pathname);
+
+  // Fail open if route not rate-limited or rate limiter not configured
   if (!ratelimit) {
     return NextResponse.next();
   }
@@ -60,5 +75,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/chat",
+  matcher: ["/api/chat", "/api/tailor", "/api/cover-letter"],
 };

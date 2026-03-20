@@ -41,6 +41,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (cvText.trim().length < 50) {
+      return NextResponse.json(
+        { error: "CV text is too short — make sure the file was parsed correctly" },
+        { status: 400 }
+      );
+    }
+
+    if (jobDescription.trim().length < 20) {
+      return NextResponse.json(
+        { error: "Job description is too short" },
+        { status: 400 }
+      );
+    }
+
     const userMessage = `CV TEXT:\n${cvText.slice(0, 6000)}\n\nJOB DESCRIPTION:\n${jobDescription.slice(0, 2000)}`;
 
     const response = await client.messages.create({
@@ -74,6 +88,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Failed to parse AI response — please try again" },
         { status: 500 }
+      );
+    }
+    if (err instanceof Anthropic.RateLimitError) {
+      return NextResponse.json(
+        { error: "Service is busy. Please try again in a moment." },
+        { status: 429 }
       );
     }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
