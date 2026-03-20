@@ -69,13 +69,11 @@ function patchParagraph(para: string, orig: string, edit: string): string {
   const paraText = getParaText(para);
   if (!paraText.includes(orig)) return para;
 
-  // Try: orig is fully inside one <w:t>
   const singleRe = new RegExp(`(<w:t(?:\\s[^>]*)?>(?:[^<]*)?)${xmlEscape(orig).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}((?:[^<]*)<\\/w:t>)`);
   if (singleRe.test(para)) {
     return para.replace(singleRe, `$1${xmlEscape(edit)}$2`);
   }
 
-  // Text spans multiple runs — patch at run level
   const runsStart = para.search(/<w:r[ >]/);
   if (runsStart < 0) return para;
   const lastRunEnd = para.lastIndexOf("</w:r>") + "</w:r>".length;
@@ -92,17 +90,11 @@ function patchParagraph(para: string, orig: string, edit: string): string {
 
   for (const run of runs) {
     const overlaps = run.from < origEnd && run.to > origStart;
-    if (!overlaps) {
-      newRuns += run.xml;
-      continue;
-    }
+    if (!overlaps) { newRuns += run.xml; continue; }
     const keepBefore = run.text.slice(0, Math.max(0, origStart - run.from));
     const keepAfter = run.text.slice(Math.max(0, origEnd - run.from));
     if (keepBefore) newRuns += makeRun(run.rPr, keepBefore);
-    if (!editInserted) {
-      newRuns += makeRun(run.rPr, edit);
-      editInserted = true;
-    }
+    if (!editInserted) { newRuns += makeRun(run.rPr, edit); editInserted = true; }
     if (keepAfter) newRuns += makeRun(run.rPr, keepAfter);
   }
 
@@ -134,36 +126,29 @@ function applyEditsToXml(xml: string, segments: Segment[]): string {
 // ─── ATS Keyword Score ────────────────────────────────────────────────────────
 
 const STOP_WORDS = new Set([
-  "the", "a", "an", "in", "on", "at", "to", "for", "of", "with", "by", "from",
-  "is", "are", "was", "were", "be", "been", "have", "has", "had", "do", "does",
-  "did", "will", "would", "could", "should", "may", "might", "must", "shall",
-  "can", "you", "we", "they", "it", "this", "that", "these", "those", "our",
-  "their", "your", "its", "or", "not", "but", "as", "if", "so", "up", "out",
-  "all", "when", "who", "which", "what", "how", "why", "where", "there", "here",
-  "and", "also", "more", "some", "any", "each", "than", "then", "into", "over",
-  "after", "about", "such", "both", "well", "just", "only", "very", "own",
+  "the","a","an","in","on","at","to","for","of","with","by","from","is","are",
+  "was","were","be","been","have","has","had","do","does","did","will","would",
+  "could","should","may","might","must","shall","can","you","we","they","it",
+  "this","that","these","those","our","their","your","its","or","not","but","as",
+  "if","so","up","out","all","when","who","which","what","how","why","where",
+  "there","here","and","also","more","some","any","each","than","then","into",
+  "over","after","about","such","both","well","just","only","very","own",
 ]);
 
 function extractKeywords(text: string): string[] {
-  return [
-    ...new Set(
-      text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
-        .split(/\s+/)
-        .filter((w) => w.length > 4 && !STOP_WORDS.has(w))
-    ),
-  ];
+  return [...new Set(
+    text.toLowerCase().replace(/[^\w\s]/g, " ").split(/\s+/)
+      .filter((w) => w.length > 4 && !STOP_WORDS.has(w))
+  )];
 }
 
-function getAtsScore(jd: string, cvText: string): { matched: string[]; missed: string[]; score: number } {
+function getAtsScore(jd: string, cvText: string) {
   const jdKeywords = extractKeywords(jd).slice(0, 30);
   if (jdKeywords.length === 0) return { matched: [], missed: [], score: 0 };
   const cvLower = cvText.toLowerCase();
   const matched = jdKeywords.filter((k) => cvLower.includes(k));
   const missed = jdKeywords.filter((k) => !cvLower.includes(k));
-  const score = Math.round((matched.length / jdKeywords.length) * 100);
-  return { matched, missed, score };
+  return { matched, missed, score: Math.round((matched.length / jdKeywords.length) * 100) };
 }
 
 // ─── File Parsers ─────────────────────────────────────────────────────────────
@@ -177,11 +162,8 @@ async function parseDocx(file: File): Promise<string> {
 
 async function parsePdf(file: File): Promise<string> {
   let pdfjsLib: typeof import("pdfjs-dist");
-  try {
-    pdfjsLib = await import("pdfjs-dist");
-  } catch {
-    throw new Error("PDF parser failed to load. Please try a .docx file instead.");
-  }
+  try { pdfjsLib = await import("pdfjs-dist"); }
+  catch { throw new Error("PDF parser failed to load. Try a .docx file instead."); }
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -194,35 +176,9 @@ async function parsePdf(file: File): Promise<string> {
   return pages.join("\n\n");
 }
 
-// ─── Info tooltip ─────────────────────────────────────────────────────────────
-
-function InfoTip({ reason }: { reason: string }) {
-  const [open, setOpen] = useState(false);
-  if (!reason) return null;
-  return (
-    <span className="relative inline-flex items-center">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        className="ml-1 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200 transition-colors text-[10px] font-semibold"
-        title="Why this change?"
-      >
-        i
-      </button>
-      {open && (
-        <span className="absolute left-6 top-0 z-50 w-56 rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs text-gray-700 shadow-lg">
-          {reason}
-        </span>
-      )}
-    </span>
-  );
-}
-
 // ─── Upload Screen ────────────────────────────────────────────────────────────
 
-function UploadScreen({
-  onComplete,
-}: {
+function UploadScreen({ onComplete }: {
   onComplete: (segments: Segment[], file: File, jd: string, cvText: string) => void;
 }) {
   const [cvText, setCvText] = useState<string | null>(null);
@@ -237,153 +193,123 @@ function UploadScreen({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(async (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      setParseError("File is too large. Please use a file under 10 MB.");
-      return;
-    }
-    setParseError(null);
-    setCvText(null);
-    setFileName(null);
-    setCvFile(null);
-    setParsing(true);
+    if (file.size > 10 * 1024 * 1024) { setParseError("File too large — maximum 10 MB."); return; }
+    setParseError(null); setCvText(null); setFileName(null); setCvFile(null); setParsing(true);
     try {
       let text = "";
-      if (file.name.endsWith(".docx")) {
-        text = await parseDocx(file);
-      } else if (file.name.endsWith(".pdf")) {
-        text = await parsePdf(file);
-      } else {
-        setParseError("Only .docx and .pdf files are supported.");
-        setParsing(false);
-        return;
-      }
-      if (text.trim().length < 50) {
-        setParseError("Could not extract text from this file. Try a different format.");
-        setParsing(false);
-        return;
-      }
-      setCvText(text);
-      setCvFile(file);
-      setFileName(file.name);
+      if (file.name.endsWith(".docx")) text = await parseDocx(file);
+      else if (file.name.endsWith(".pdf")) text = await parsePdf(file);
+      else { setParseError("Only .docx and .pdf files are supported."); setParsing(false); return; }
+      if (text.trim().length < 50) { setParseError("Could not extract text. Try a different format."); setParsing(false); return; }
+      setCvText(text); setCvFile(file); setFileName(file.name);
     } catch (err) {
-      setParseError(err instanceof Error ? err.message : "Failed to parse file. Please try a different file.");
-    } finally {
-      setParsing(false);
-    }
+      setParseError(err instanceof Error ? err.message : "Failed to parse file.");
+    } finally { setParsing(false); }
   }, []);
 
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    },
-    [handleFile]
-  );
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setDragging(false);
+    const file = e.dataTransfer.files[0]; if (file) handleFile(file);
+  }, [handleFile]);
 
   async function handleSubmit() {
     if (!cvText || !jd.trim() || !cvFile) return;
-    setLoading(true);
-    setApiError(null);
+    setLoading(true); setApiError(null);
     try {
       const res = await fetch("/api/tailor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cvText, jobDescription: jd }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      const segments: Segment[] = data.segments.map((s: Omit<Segment, "status">) => ({
-        ...s,
-        status: "pending",
-      }));
+      const segments: Segment[] = data.segments.map((s: Omit<Segment, "status">) => ({ ...s, status: "pending" }));
       onComplete(segments, cvFile, jd, cvText);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   const canSubmit = !!cvText && jd.trim().length > 0 && !loading && !parsing;
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
+    <div className="mx-auto max-w-5xl px-6 py-14">
+      {/* Page title */}
+      <div className="mb-10">
+        <p className="font-mono text-xs tracking-[0.2em] uppercase text-slate-400 mb-1">Step 1 of 3</p>
+        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Upload your CV and paste the job description</h2>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* CV Upload */}
-        <div className="flex flex-col gap-3">
-          <label className="text-sm font-medium text-gray-700">Your CV</label>
+        <div className="flex flex-col gap-2">
+          <label className="font-mono text-xs tracking-[0.15em] uppercase text-slate-400">Your CV</label>
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors ${
-              dragging ? "border-blue-500 bg-blue-50" : cvText ? "border-green-400 bg-green-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
+            className={`flex min-h-[300px] cursor-pointer flex-col items-center justify-center border-2 border-dashed transition-all ${
+              dragging
+                ? "border-slate-900 bg-slate-50"
+                : cvText
+                ? "border-emerald-400 bg-emerald-50/40"
+                : "border-slate-200 bg-white hover:border-slate-300"
             }`}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".docx,.pdf"
-              className="hidden"
-              onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }}
-            />
+            <input ref={fileInputRef} type="file" accept=".docx,.pdf" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
             {parsing ? (
               <div className="text-center">
-                <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                <p className="text-sm text-gray-500">Parsing file...</p>
+                <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-slate-900 border-t-transparent" />
+                <p className="font-mono text-xs text-slate-400 tracking-wider uppercase">Parsing...</p>
               </div>
             ) : cvText ? (
               <div className="text-center px-6">
-                <div className="mb-2 text-2xl">✓</div>
-                <p className="font-medium text-green-700 text-sm">{fileName}</p>
-                <p className="mt-1 text-xs text-gray-500">{cvText.length.toLocaleString()} characters extracted</p>
-                <p className="mt-2 text-xs text-blue-500">Click to replace</p>
+                <p className="font-mono text-xs tracking-wider uppercase text-emerald-600 mb-2">File loaded</p>
+                <p className="font-semibold text-slate-900 text-sm">{fileName}</p>
+                <p className="mt-1 font-mono text-xs text-slate-400">{cvText.length.toLocaleString()} chars</p>
+                <p className="mt-3 font-mono text-xs text-slate-400 underline underline-offset-2">Click to replace</p>
               </div>
             ) : (
               <div className="text-center px-6">
-                <div className="mb-3 text-3xl text-gray-300">↑</div>
-                <p className="font-medium text-gray-700 text-sm">Drop your CV here</p>
-                <p className="mt-1 text-xs text-gray-400">or click to browse</p>
-                <p className="mt-3 text-xs text-gray-400">.docx or .pdf</p>
+                <div className="mb-4 text-2xl text-slate-300">↑</div>
+                <p className="font-semibold text-slate-700 text-sm">Drop your CV here</p>
+                <p className="mt-1 font-mono text-xs text-slate-400">or click to browse</p>
+                <p className="mt-4 font-mono text-xs text-slate-300">.docx or .pdf</p>
               </div>
             )}
           </div>
-          {parseError && <p className="text-xs text-red-500">{parseError}</p>}
+          {parseError && <p className="font-mono text-xs text-red-500">{parseError}</p>}
         </div>
 
         {/* Job Description */}
-        <div className="flex flex-col gap-3">
-          <label className="text-sm font-medium text-gray-700">Job Description</label>
+        <div className="flex flex-col gap-2">
+          <label className="font-mono text-xs tracking-[0.15em] uppercase text-slate-400">Job Description</label>
           <textarea
             value={jd}
             onChange={(e) => setJd(e.target.value)}
             placeholder="Paste the full job description here..."
-            className="min-h-[280px] flex-1 resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+            className="min-h-[300px] flex-1 resize-none border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-300 focus:border-slate-900 focus:ring-0"
           />
         </div>
       </div>
 
       {apiError && (
-        <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{apiError}</div>
+        <div className="mt-4 border border-red-200 bg-red-50 px-4 py-3 font-mono text-xs text-red-600">{apiError}</div>
       )}
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-8 flex justify-end">
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="flex items-center gap-2 rounded-lg bg-[#2563EB] px-8 py-3 text-sm font-medium text-white transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex items-center gap-3 bg-slate-900 px-8 py-3.5 font-mono text-xs tracking-[0.15em] uppercase text-white transition-all hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30"
         >
           {loading ? (
             <>
-              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Analyzing CV...
+              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Analyzing...
             </>
-          ) : (
-            "Tailor CV →"
-          )}
+          ) : "Tailor CV →"}
         </button>
       </div>
     </div>
@@ -392,14 +318,7 @@ function UploadScreen({
 
 // ─── Review Screen ────────────────────────────────────────────────────────────
 
-function ReviewScreen({
-  segments: initialSegments,
-  originalFile,
-  jd,
-  cvText,
-  onReset,
-  onCoverLetter,
-}: {
+function ReviewScreen({ segments: initialSegments, originalFile, jd, cvText, onReset, onCoverLetter }: {
   segments: Segment[];
   originalFile: File | null;
   jd: string;
@@ -409,7 +328,7 @@ function ReviewScreen({
 }) {
   const [segments, setSegments] = useState<Segment[]>(initialSegments);
   const [downloading, setDownloading] = useState(false);
-  const [showAts, setShowAts] = useState(false);
+  const [showAtsDetail, setShowAtsDetail] = useState(false);
   const [showInterviewPrep, setShowInterviewPrep] = useState(false);
 
   const changed = segments.filter((s) => s.changed);
@@ -417,37 +336,28 @@ function ReviewScreen({
   const reverted = segments.filter((s) => s.changed && s.status === "reverted");
   const pending = segments.filter((s) => s.changed && s.status === "pending");
 
-  // Build current CV text from segments for ATS scoring
-  const currentCvText = segments
-    .map((s) => {
-      if (!s.changed || s.status === "reverted") return s.original;
-      if (s.status === "approved") return s.edited;
-      return s.original; // pending — score against original
-    })
-    .join(" ");
+  const currentCvText = segments.map((s) => {
+    if (!s.changed || s.status === "reverted") return s.original;
+    if (s.status === "approved") return s.edited;
+    return s.original;
+  }).join(" ");
 
   const ats = getAtsScore(jd, currentCvText);
+  const atsColor = ats.score >= 70 ? "text-emerald-600" : ats.score >= 45 ? "text-amber-500" : "text-red-500";
+  const atsBg = ats.score >= 70 ? "bg-emerald-50 border-emerald-200" : ats.score >= 45 ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200";
 
-  // Interview prep: extract themes from changed segment reasons
-  const prepThemes = [
-    ...new Set(
-      segments
-        .filter((s) => s.changed && s.reason)
-        .map((s) => s.reason)
-        .slice(0, 8)
-    ),
-  ];
+  const prepThemes = [...new Set(
+    segments.filter((s) => s.changed && s.reason).map((s) => s.reason).slice(0, 8)
+  )];
 
   function approve(idx: number) {
-    setSegments((prev) => prev.map((s, i) => (i === idx ? { ...s, status: "approved" } : s)));
+    setSegments((p) => p.map((s, i) => i === idx ? { ...s, status: "approved" } : s));
   }
-
   function revert(idx: number) {
-    setSegments((prev) => prev.map((s, i) => (i === idx ? { ...s, status: "reverted" } : s)));
+    setSegments((p) => p.map((s, i) => i === idx ? { ...s, status: "reverted" } : s));
   }
-
   function approveAll() {
-    setSegments((prev) => prev.map((s) => (s.changed && s.status === "pending" ? { ...s, status: "approved" } : s)));
+    setSegments((p) => p.map((s) => s.changed && s.status === "pending" ? { ...s, status: "approved" } : s));
   }
 
   async function downloadDocx() {
@@ -459,258 +369,211 @@ function ReviewScreen({
         const xmlFile = zip.file("word/document.xml");
         if (!xmlFile) throw new Error("Invalid docx");
         const xml = await xmlFile.async("string");
-        const patched = applyEditsToXml(xml, segments);
-        zip.file("word/document.xml", patched);
-        const blob = await zip.generateAsync({
-          type: "blob",
-          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        });
+        zip.file("word/document.xml", applyEditsToXml(xml, segments));
+        const blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
         triggerDownload(blob, "CV_Tailored.docx");
       } else {
-        const finalText = segments
-          .map((s) => {
-            if (!s.changed || s.status === "reverted") return s.original;
-            if (s.status === "approved") return s.edited;
-            return s.original;
-          })
-          .join(" ");
-        const paras = finalText
-          .split(/\n+/)
-          .filter((l) => l.trim())
-          .map((l) => new Paragraph({ children: [new TextRun({ text: l.trim(), size: 24, font: "Calibri" })], spacing: { after: 160 } }));
+        const finalText = segments.map((s) => (!s.changed || s.status === "reverted") ? s.original : s.status === "approved" ? s.edited : s.original).join(" ");
+        const paras = finalText.split(/\n+/).filter((l) => l.trim()).map((l) => new Paragraph({ children: [new TextRun({ text: l.trim(), size: 24, font: "Calibri" })], spacing: { after: 160 } }));
         const doc = new Document({ sections: [{ children: paras }] });
-        const blob = await Packer.toBlob(doc);
-        triggerDownload(blob, "CV_Tailored.docx");
+        triggerDownload(await Packer.toBlob(doc), "CV_Tailored.docx");
       }
     } catch (err) {
       console.error("Download failed:", err);
       alert("Download failed. Please try again.");
-    } finally {
-      setDownloading(false);
-    }
+    } finally { setDownloading(false); }
   }
 
   function triggerDownload(blob: Blob, name: string) {
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
+    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
     URL.revokeObjectURL(url);
   }
 
-  const atsColor =
-    ats.score >= 70 ? "text-green-600" : ats.score >= 45 ? "text-amber-600" : "text-red-500";
-
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
-      {/* Summary bar */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white px-6 py-4 shadow-sm">
-        <div className="flex items-center gap-6 text-sm">
-          <span className="text-gray-500">
-            <span className="font-semibold text-gray-900">{changed.length}</span> edits suggested
-          </span>
-          <span className="text-green-600">
-            <span className="font-semibold">{approved.length}</span> approved
-          </span>
-          <span className="text-gray-400">
-            <span className="font-semibold">{reverted.length}</span> reverted
-          </span>
-          {pending.length > 0 && (
-            <span className="text-blue-500">
-              <span className="font-semibold">{pending.length}</span> pending
-            </span>
-          )}
+    <div className="mx-auto max-w-4xl px-6 py-10">
+
+      {/* Page title + meta */}
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <p className="font-mono text-xs tracking-[0.2em] uppercase text-slate-400 mb-1">Step 2 of 3</p>
+          <h2 className="text-xl font-semibold text-slate-900 tracking-tight">Review suggested edits</h2>
         </div>
-        <div className="flex items-center gap-3">
-          {pending.length > 0 && (
-            <button
-              onClick={approveAll}
-              className="rounded-lg border border-green-300 bg-green-50 px-4 py-2 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
-            >
-              Approve all
-            </button>
-          )}
-          <button
-            onClick={() => onCoverLetter(segments)}
-            className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-medium text-purple-700 hover:bg-purple-100 transition-colors"
-          >
-            Generate cover letter
-          </button>
-          {approved.length > 0 && (
-            <button
-              onClick={downloadDocx}
-              disabled={downloading}
-              className="flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-5 py-2 text-xs font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
-            >
-              {downloading && <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-              Download .docx
-            </button>
-          )}
-          <button
-            onClick={onReset}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-          >
-            Start over
-          </button>
-        </div>
+        <button onClick={onReset} className="font-mono text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors mt-1">
+          Start over
+        </button>
       </div>
 
-      {/* ATS score panel */}
-      <div className="mb-4 rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+      {/* Stats row */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <span className="border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs text-slate-500">
+          <span className="font-semibold text-slate-900">{changed.length}</span> edits
+        </span>
+        <span className="border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-mono text-xs text-emerald-700">
+          <span className="font-semibold">{approved.length}</span> approved
+        </span>
+        {reverted.length > 0 && (
+          <span className="border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs text-slate-400">
+            <span className="font-semibold">{reverted.length}</span> reverted
+          </span>
+        )}
+        {pending.length > 0 && (
+          <span className="border border-amber-200 bg-amber-50 px-3 py-1.5 font-mono text-xs text-amber-600">
+            <span className="font-semibold">{pending.length}</span> pending
+          </span>
+        )}
+
+        {/* ATS score — always visible in the stats row */}
         <button
-          onClick={() => setShowAts((v) => !v)}
-          className="flex w-full items-center justify-between px-6 py-3 text-sm hover:bg-gray-50 transition-colors"
+          onClick={() => setShowAtsDetail((v) => !v)}
+          className={`border px-3 py-1.5 font-mono text-xs transition-colors ${atsBg} ${atsColor}`}
         >
-          <div className="flex items-center gap-3">
-            <span className="font-medium text-gray-700">ATS Keyword Match</span>
-            <span className={`text-sm font-semibold ${atsColor}`}>{ats.score}%</span>
-            <span className="text-xs text-gray-400">
-              {ats.matched.length}/{ats.matched.length + ats.missed.length} keywords found
-            </span>
-          </div>
-          <span className="text-gray-400 text-xs">{showAts ? "▲" : "▼"}</span>
+          ATS match <span className="font-semibold">{ats.score}%</span> {showAtsDetail ? "▲" : "▼"}
         </button>
-        {showAts && (
-          <div className="border-t border-gray-100 px-6 py-4">
-            {ats.missed.length > 0 && (
-              <div className="mb-3">
-                <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Missing keywords</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {ats.missed.slice(0, 15).map((k) => (
-                    <span key={k} className="rounded-md bg-red-50 px-2 py-0.5 text-xs text-red-600 border border-red-100">
-                      {k}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {ats.matched.length > 0 && (
-              <div>
-                <p className="mb-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Matched keywords</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {ats.matched.slice(0, 15).map((k) => (
-                    <span key={k} className="rounded-md bg-green-50 px-2 py-0.5 text-xs text-green-700 border border-green-100">
-                      {k}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+
+        {/* Interview prep pill */}
+        {prepThemes.length > 0 && (
+          <button
+            onClick={() => setShowInterviewPrep((v) => !v)}
+            className="border border-purple-200 bg-purple-50 px-3 py-1.5 font-mono text-xs text-purple-600 transition-colors hover:bg-purple-100"
+          >
+            Interview prep {showInterviewPrep ? "▲" : "▼"}
+          </button>
         )}
       </div>
 
-      {/* Interview prep panel */}
-      {prepThemes.length > 0 && (
-        <div className="mb-4 rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-          <button
-            onClick={() => setShowInterviewPrep((v) => !v)}
-            className="flex w-full items-center justify-between px-6 py-3 text-sm hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <span className="font-medium text-gray-700">Interview Prep</span>
-              <span className="text-xs text-gray-400">{prepThemes.length} key themes from this JD</span>
-            </div>
-            <span className="text-gray-400 text-xs">{showInterviewPrep ? "▲" : "▼"}</span>
-          </button>
-          {showInterviewPrep && (
-            <div className="border-t border-gray-100 px-6 py-4">
-              <p className="mb-3 text-xs text-gray-500">
-                Based on the edits Claude made, these are the themes this role emphasizes. Prepare to discuss each one.
-              </p>
-              <div className="space-y-2">
-                {prepThemes.map((theme, i) => (
-                  <div key={i} className="flex gap-3 items-start">
-                    <span className="mt-0.5 flex-shrink-0 text-xs font-semibold text-purple-500">{i + 1}.</span>
-                    <p className="text-sm text-gray-700">{theme}</p>
-                  </div>
+      {/* ATS detail panel */}
+      {showAtsDetail && (
+        <div className="mb-4 border border-slate-200 bg-white px-6 py-5">
+          <p className="font-mono text-xs tracking-[0.15em] uppercase text-slate-400 mb-4">ATS Keyword Match</p>
+          {ats.missed.length > 0 && (
+            <div className="mb-4">
+              <p className="font-mono text-xs text-slate-400 mb-2">Missing from your CV</p>
+              <div className="flex flex-wrap gap-1.5">
+                {ats.missed.slice(0, 15).map((k) => (
+                  <span key={k} className="border border-red-200 bg-red-50 px-2.5 py-1 font-mono text-xs text-red-600">{k}</span>
                 ))}
               </div>
-              <p className="mt-4 text-xs text-gray-400">
-                Tip: For each theme, prepare a specific example from your experience using the STAR format (Situation, Task, Action, Result).
-              </p>
+            </div>
+          )}
+          {ats.matched.length > 0 && (
+            <div>
+              <p className="font-mono text-xs text-slate-400 mb-2">Matched keywords</p>
+              <div className="flex flex-wrap gap-1.5">
+                {ats.matched.slice(0, 15).map((k) => (
+                  <span key={k} className="border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-mono text-xs text-emerald-700">{k}</span>
+                ))}
+              </div>
             </div>
           )}
         </div>
       )}
 
+      {/* Interview prep panel */}
+      {showInterviewPrep && prepThemes.length > 0 && (
+        <div className="mb-4 border border-slate-200 bg-white px-6 py-5">
+          <p className="font-mono text-xs tracking-[0.15em] uppercase text-slate-400 mb-4">Interview Prep — Key Themes</p>
+          <p className="text-sm text-slate-500 mb-4">Based on the tailoring, these are the competencies this role emphasizes. Prepare a specific STAR example for each.</p>
+          <div className="space-y-3">
+            {prepThemes.map((theme, i) => (
+              <div key={i} className="flex gap-3 items-start border-l-2 border-slate-200 pl-4">
+                <span className="font-mono text-xs text-slate-400 mt-0.5 w-4 flex-shrink-0">{i + 1}.</span>
+                <p className="text-sm text-slate-700">{theme}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Action bar */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-slate-200 bg-white px-5 py-3">
+        <div className="flex items-center gap-3">
+          {pending.length > 0 && (
+            <button onClick={approveAll}
+              className="font-mono text-xs tracking-wider uppercase text-emerald-700 border border-emerald-300 bg-emerald-50 px-4 py-2 hover:bg-emerald-100 transition-colors">
+              Approve all ({pending.length})
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Cover letter CTA — prominent */}
+          <button onClick={() => onCoverLetter(segments)}
+            className="flex items-center gap-2 border border-slate-900 bg-slate-900 px-5 py-2 font-mono text-xs tracking-wider uppercase text-white hover:bg-slate-700 transition-colors">
+            Generate cover letter →
+          </button>
+          {approved.length > 0 && (
+            <button onClick={downloadDocx} disabled={downloading}
+              className="flex items-center gap-2 border border-emerald-600 bg-emerald-600 px-5 py-2 font-mono text-xs tracking-wider uppercase text-white hover:bg-emerald-700 transition-colors disabled:opacity-50">
+              {downloading && <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+              Download .docx
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* CV content */}
-      <div className="rounded-xl border border-gray-100 bg-white px-8 py-8 shadow-sm">
-        <div className="leading-relaxed text-sm text-gray-900">
+      <div className="border border-slate-200 bg-white px-10 py-10">
+        <div className="leading-[1.9] text-sm text-slate-800">
           {segments.map((seg, i) => {
-            if (!seg.changed) {
-              return <span key={i}>{seg.original}</span>;
-            }
+            if (!seg.changed) return <span key={i}>{seg.original}</span>;
 
             const isApproved = seg.status === "approved";
             const isReverted = seg.status === "reverted";
             const isPending = seg.status === "pending";
 
+            if (isReverted) {
+              return (
+                <span key={i}>
+                  <span className="text-slate-800">{seg.original}</span>
+                  <button onClick={() => approve(i)} title="Re-apply suggestion"
+                    className="ml-1 inline-flex items-center gap-0.5 border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-400 hover:border-slate-400 hover:text-slate-600 transition-colors">
+                    ↻ re-apply
+                  </button>
+                  {" "}
+                </span>
+              );
+            }
+
             return (
               <span key={i} className="inline">
-                <span
-                  className={`inline rounded px-0.5 ${
-                    isApproved ? "bg-green-50" : isReverted ? "" : "bg-blue-50"
-                  }`}
-                >
-                  {/* Edited text (pending or approved) */}
-                  {!isReverted && (
-                    <span className={`font-medium ${isApproved ? "text-green-800" : "text-[#2563EB]"}`}>
-                      {seg.edited}
-                    </span>
-                  )}
+                {/* Change block — new text + removed original + controls */}
+                <span className={`inline rounded-sm px-0.5 py-0.5 ${isApproved ? "bg-emerald-50" : "bg-blue-50"}`}>
+                  {/* Proposed text */}
+                  <span className={`font-medium ${isApproved ? "text-emerald-800" : "text-blue-800"}`}>
+                    {seg.edited}
+                  </span>
 
-                  {/* Original text — always show, style depends on state */}
-                  {isReverted ? (
-                    <span className="text-gray-900">{seg.original}</span>
-                  ) : (
+                  {/* Removed original — clear label + strong strikethrough */}
+                  <span className="ml-2 inline-flex items-baseline gap-1">
+                    <span className="font-mono text-[10px] text-slate-400 not-italic">was:</span>
                     <span
-                      className="ml-1 inline-block rounded bg-red-100 px-1 text-xs text-red-600 line-through decoration-red-500 decoration-2"
-                      style={{ textDecorationLine: "line-through" }}
+                      className="rounded-sm bg-red-100 px-1 text-red-700"
+                      style={{ textDecoration: "line-through", textDecorationColor: "#dc2626", textDecorationThickness: "2px" }}
                     >
                       {seg.original}
                     </span>
-                  )}
+                  </span>
 
-                  {/* Info tip (why this change) */}
-                  {!isReverted && <InfoTip reason={seg.reason} />}
+                  {/* Reason tooltip */}
+                  {seg.reason && <ReasonTip reason={seg.reason} />}
 
                   {/* Action buttons */}
                   {isPending && (
-                    <span className="ml-1 inline-flex items-center gap-0.5">
-                      <button
-                        onClick={() => approve(i)}
-                        title="Approve"
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-green-600 hover:bg-green-200 transition-colors text-xs"
-                      >
-                        ✓
+                    <span className="ml-2 inline-flex items-center gap-1">
+                      <button onClick={() => approve(i)}
+                        className="inline-flex items-center gap-0.5 border border-emerald-400 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] text-emerald-700 hover:bg-emerald-100 transition-colors">
+                        ✓ keep
                       </button>
-                      <button
-                        onClick={() => revert(i)}
-                        title="Revert"
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-red-500 hover:bg-red-200 transition-colors text-xs"
-                      >
-                        ✕
+                      <button onClick={() => revert(i)}
+                        className="inline-flex items-center gap-0.5 border border-red-300 bg-red-50 px-1.5 py-0.5 font-mono text-[10px] text-red-600 hover:bg-red-100 transition-colors">
+                        ✕ undo
                       </button>
                     </span>
                   )}
                   {isApproved && (
-                    <button
-                      onClick={() => revert(i)}
-                      title="Undo"
-                      className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 transition-colors text-xs"
-                    >
-                      ↩
-                    </button>
-                  )}
-                  {isReverted && (
-                    <button
-                      onClick={() => approve(i)}
-                      title="Re-apply"
-                      className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-100 text-blue-400 hover:bg-blue-200 transition-colors text-xs"
-                    >
-                      ↻
+                    <button onClick={() => revert(i)}
+                      className="ml-2 border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-400 hover:border-slate-400 transition-colors">
+                      ↩ undo
                     </button>
                   )}
                 </span>
@@ -720,19 +583,48 @@ function ReviewScreen({
           })}
         </div>
       </div>
+
+      {/* Bottom CTA — cover letter */}
+      <div className="mt-6 border border-slate-200 bg-white px-6 py-5 flex items-center justify-between gap-4">
+        <div>
+          <p className="font-mono text-xs tracking-[0.15em] uppercase text-slate-400 mb-0.5">Next step</p>
+          <p className="text-sm text-slate-700">Generate a cover letter tailored to this JD using your approved edits.</p>
+        </div>
+        <button onClick={() => onCoverLetter(segments)}
+          className="flex-shrink-0 flex items-center gap-2 bg-slate-900 px-6 py-3 font-mono text-xs tracking-[0.15em] uppercase text-white hover:bg-slate-700 transition-colors">
+          Cover letter →
+        </button>
+      </div>
     </div>
+  );
+}
+
+// ─── Reason tooltip ───────────────────────────────────────────────────────────
+
+function ReasonTip({ reason }: { reason: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className="ml-1 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border border-slate-300 font-mono text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-600 transition-colors"
+        title="Why this change?"
+      >
+        ?
+      </button>
+      {open && (
+        <span className="absolute left-6 top-0 z-50 w-64 border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-600 shadow-lg leading-relaxed">
+          {reason}
+        </span>
+      )}
+    </span>
   );
 }
 
 // ─── Cover Letter Screen ──────────────────────────────────────────────────────
 
-function CoverLetterScreen({
-  segments,
-  cvText,
-  jd,
-  onBack,
-  onReset,
-}: {
+function CoverLetterScreen({ segments, cvText, jd, onBack, onReset }: {
   segments: Segment[];
   cvText: string;
   jd: string;
@@ -744,12 +636,10 @@ function CoverLetterScreen({
   const [error, setError] = useState<string | null>(null);
 
   async function generate() {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const res = await fetch("/api/cover-letter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cvText, jobDescription: jd, segments }),
       });
       const data = await res.json();
@@ -757,94 +647,76 @@ function CoverLetterScreen({
       setCoverLetter(data.coverLetter);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   function downloadTxt() {
     if (!coverLetter) return;
     const blob = new Blob([coverLetter], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "Cover_Letter.txt";
-    a.click();
+    const a = document.createElement("a"); a.href = url; a.download = "Cover_Letter.txt"; a.click();
     URL.revokeObjectURL(url);
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
-      {/* Header bar */}
-      <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white px-6 py-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-          >
-            ← Back to CV
-          </button>
-          <span className="text-sm font-medium text-gray-700">Cover Letter</span>
+    <div className="mx-auto max-w-3xl px-6 py-10">
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <p className="font-mono text-xs tracking-[0.2em] uppercase text-slate-400 mb-1">Step 3 of 3</p>
+          <h2 className="text-xl font-semibold text-slate-900 tracking-tight">Cover letter</h2>
         </div>
-        <div className="flex items-center gap-3">
-          {coverLetter && (
-            <button
-              onClick={downloadTxt}
-              className="rounded-lg bg-[#2563EB] px-5 py-2 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
-            >
-              Download .txt
-            </button>
-          )}
-          <button
-            onClick={onReset}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-          >
-            Start over
-          </button>
+        <div className="flex items-center gap-3 mt-1">
+          <button onClick={onBack} className="font-mono text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors">← Back</button>
+          <button onClick={onReset} className="font-mono text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors">Start over</button>
         </div>
       </div>
 
-      {/* Main area */}
-      {!coverLetter && !loading && !error && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white px-8 py-16 shadow-sm text-center">
-          <p className="text-sm text-gray-500 max-w-sm mb-6">
-            Claude will write a tailored cover letter based on your CV and the job description, using the changes you approved.
+      {error && (
+        <div className="mb-4 border border-red-200 bg-red-50 px-4 py-3 font-mono text-xs text-red-600">{error}</div>
+      )}
+
+      {/* Empty state — prompt to generate */}
+      {!coverLetter && !loading && (
+        <div className="border border-dashed border-slate-300 bg-white px-8 py-16 text-center">
+          <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6 leading-relaxed">
+            Claude will write a cover letter tailored to this JD, using your approved CV edits as anchors.
           </p>
-          <button
-            onClick={generate}
-            className="rounded-lg bg-[#2563EB] px-8 py-3 text-sm font-medium text-white hover:bg-blue-700 transition-all"
-          >
+          <button onClick={generate}
+            className="bg-slate-900 px-8 py-3.5 font-mono text-xs tracking-[0.15em] uppercase text-white hover:bg-slate-700 transition-colors">
             Generate cover letter
           </button>
         </div>
       )}
 
+      {/* Loading */}
       {loading && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-white px-8 py-16 shadow-sm">
-          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-          <p className="text-sm text-gray-500">Writing your cover letter...</p>
+        <div className="border border-slate-200 bg-white px-8 py-16 text-center">
+          <div className="mx-auto mb-4 h-6 w-6 animate-spin rounded-full border-2 border-slate-900 border-t-transparent" />
+          <p className="font-mono text-xs tracking-wider uppercase text-slate-400">Writing your cover letter...</p>
         </div>
       )}
 
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
-      )}
-
+      {/* Generated letter */}
       {coverLetter && (
-        <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-3">
-            <span className="text-xs text-gray-400">Edit directly in the box below</span>
-            <button
-              onClick={generate}
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-            >
-              Regenerate
-            </button>
+        <div className="border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-3">
+            <span className="font-mono text-xs text-slate-400">Edit directly below</span>
+            <div className="flex items-center gap-3">
+              <button onClick={generate}
+                className="font-mono text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors">
+                Regenerate
+              </button>
+              <button onClick={downloadTxt}
+                className="border border-slate-900 bg-slate-900 px-4 py-1.5 font-mono text-xs tracking-wider uppercase text-white hover:bg-slate-700 transition-colors">
+                Download .txt
+              </button>
+            </div>
           </div>
           <textarea
             value={coverLetter}
             onChange={(e) => setCoverLetter(e.target.value)}
-            className="w-full resize-none px-8 py-6 text-sm text-gray-900 leading-relaxed outline-none rounded-b-xl min-h-[420px]"
+            className="w-full resize-none px-8 py-8 text-sm text-slate-800 leading-[1.9] outline-none min-h-[480px]"
             spellCheck
           />
         </div>
@@ -863,62 +735,53 @@ export default function CVTailorPage() {
   const [cvText, setCvText] = useState("");
 
   function handleUploadComplete(segs: Segment[], file: File, jobDesc: string, cv: string) {
-    setSegments(segs);
-    setOriginalFile(file);
-    setJd(jobDesc);
-    setCvText(cv);
-    setStage("review");
+    setSegments(segs); setOriginalFile(file); setJd(jobDesc); setCvText(cv); setStage("review");
   }
 
   function handleCoverLetter(segs: Segment[]) {
-    setSegments(segs);
-    setStage("cover-letter");
+    setSegments(segs); setStage("cover-letter");
   }
 
   function handleReset() {
-    setSegments([]);
-    setOriginalFile(null);
-    setJd("");
-    setCvText("");
-    setStage("upload");
+    setSegments([]); setOriginalFile(null); setJd(""); setCvText(""); setStage("upload");
   }
 
+  const stageLabel = stage === "upload" ? "Upload" : stage === "review" ? "Review Edits" : "Cover Letter";
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-stone-50">
       {/* Header */}
-      <header className="border-b bg-[#0f172a] px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div>
-            <span className="text-base font-semibold text-white">CV Tailor</span>
-            <span className="ml-3 text-xs text-slate-400">Powered by Claude</span>
+      <header className="border-b border-slate-800 bg-[#0f172a]">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-4">
+            <span className="font-mono text-xs tracking-[0.3em] uppercase text-white">CV Tailor</span>
+            <span className="font-mono text-[10px] text-slate-500">by Claude</span>
           </div>
-          {stage === "review" && (
-            <span className="text-xs text-slate-500">Review your tailored edits below</span>
-          )}
-          {stage === "cover-letter" && (
-            <span className="text-xs text-slate-500">Cover letter</span>
-          )}
+          <div className="flex items-center gap-2">
+            {(["upload", "review", "cover-letter"] as Stage[]).map((s, i) => (
+              <span key={s} className="flex items-center gap-2">
+                {i > 0 && <span className="font-mono text-[10px] text-slate-600">→</span>}
+                <span className={`font-mono text-[10px] tracking-wider uppercase ${s === stage ? "text-white" : "text-slate-500"}`}>
+                  {s === "upload" ? "Upload" : s === "review" ? "Review" : "Cover letter"}
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       </header>
 
       {stage === "upload" && <UploadScreen onComplete={handleUploadComplete} />}
       {stage === "review" && (
         <ReviewScreen
-          segments={segments}
-          originalFile={originalFile}
-          jd={jd}
-          cvText={cvText}
-          onReset={handleReset}
-          onCoverLetter={handleCoverLetter}
+          segments={segments} originalFile={originalFile}
+          jd={jd} cvText={cvText}
+          onReset={handleReset} onCoverLetter={handleCoverLetter}
         />
       )}
       {stage === "cover-letter" && (
         <CoverLetterScreen
-          segments={segments}
-          cvText={cvText}
-          jd={jd}
-          onBack={() => setStage("review")}
-          onReset={handleReset}
+          segments={segments} cvText={cvText} jd={jd}
+          onBack={() => setStage("review")} onReset={handleReset}
         />
       )}
     </div>
