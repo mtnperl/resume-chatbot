@@ -1,26 +1,12 @@
 "use client";
 
-import RoleFitAnalyzer from "@/components/RoleFitAnalyzer";
-
 type Props = {
   open: boolean;
   onClose: () => void;
-  onChipClick: (q: string) => void;
   onContact: () => void;
-  isLoading: boolean;
-  atMessageLimit: boolean;
-  questions: string[];
 };
 
-export default function MobileDrawer({
-  open,
-  onClose,
-  onChipClick,
-  onContact,
-  isLoading,
-  atMessageLimit,
-  questions,
-}: Props) {
+export default function MobileDrawer({ open, onClose, onContact }: Props) {
   return (
     <>
       {/* Backdrop */}
@@ -67,7 +53,7 @@ export default function MobileDrawer({
           }}
         >
           <span style={{ fontSize: 14, fontWeight: 600, color: "var(--chrome-shine)" }}>
-            Menu
+            Mathan Perl
           </span>
           <button
             onClick={onClose}
@@ -91,7 +77,7 @@ export default function MobileDrawer({
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            padding: "24px 24px 16px",
+            padding: "24px 24px 20px",
           }}
         >
           <div
@@ -126,62 +112,42 @@ export default function MobileDrawer({
           <p style={{ fontSize: 12, color: "var(--metal-dark)", textAlign: "center" }}>
             Unity · New York
           </p>
-          <div
-            style={{ marginTop: 16, width: "100%", height: 1, background: "var(--divider-bg)" }}
-          />
         </div>
 
-        {/* Suggested questions */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 14px 14px" }}>
+        {/* Bio */}
+        <div
+          style={{
+            flex: 1,
+            padding: "0 20px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          <div style={{ height: 1, background: "var(--divider-bg)" }} />
           <p
             style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: "var(--metal-dark)",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              marginBottom: 10,
-              paddingLeft: 6,
+              fontSize: 13,
+              color: "var(--metal-mid)",
+              lineHeight: 1.65,
+              textAlign: "center",
             }}
           >
-            Ask me
+            After 3+ years scaling strategic partnerships at Unity, I&apos;m actively looking for my next adventure.
+            Open to roles where I can own enterprise relationships, drive revenue growth, and build something meaningful.
           </p>
-          {!atMessageLimit &&
-            questions.map((q) => (
-              <button
-                key={q}
-                onClick={() => {
-                  onChipClick(q);
-                  onClose();
-                }}
-                disabled={isLoading}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "10px 12px",
-                  marginBottom: 7,
-                  background: "var(--chip-bg)",
-                  border: "1px solid var(--chip-border)",
-                  borderRadius: 12,
-                  fontSize: 13,
-                  color: "var(--metal-mid)",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  opacity: isLoading ? 0.4 : 1,
-                }}
-              >
-                {q}
-              </button>
-            ))}
+          <div style={{ height: 1, background: "var(--divider-bg)" }} />
         </div>
 
         {/* Bottom actions */}
         <div
           style={{
-            padding: "14px 14px",
+            padding: "16px 14px",
             paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)",
             borderTop: "1px solid var(--header-border)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
           }}
         >
           <button
@@ -205,12 +171,10 @@ export default function MobileDrawer({
           >
             Get in touch
           </button>
-          <div style={{ marginTop: 8 }}>
-            <RoleFitAnalyzer fullWidth />
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
             {[
               { label: "LinkedIn", href: "https://www.linkedin.com/in/mathan-perl-9b442076/" },
+              { label: "GitHub", href: "https://github.com/mtnperl" },
               { label: "Resume", href: "/resume.pdf" },
             ].map(({ label, href }) => (
               <a
@@ -223,9 +187,9 @@ export default function MobileDrawer({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  padding: "9px",
+                  padding: "9px 4px",
                   borderRadius: 12,
-                  fontSize: 13,
+                  fontSize: 12,
                   background: "var(--link-btn-bg)",
                   border: "1px solid var(--link-btn-border)",
                   color: "var(--metal-mid)",

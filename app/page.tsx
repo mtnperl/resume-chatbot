@@ -775,6 +775,9 @@ export default function Home() {
           ) : (
           <div className="space-y-4">
             {messages.map((message, i) => {
+              const isFirstAssistant = i === 0 && message.role === "assistant";
+              const hasUserMessages = messages.some((m) => m.role === "user");
+              const showSuggestions = isFirstAssistant && !hasUserMessages && !atMessageLimit;
               const prevUserMsg = messages
                 .slice(0, i)
                 .reverse()
@@ -787,6 +790,38 @@ export default function Home() {
                     isStreaming={isLoading && message.id === streamingId}
                     prevUserQuestion={prevUserMsg?.content as string | undefined}
                   />
+                  {/* Suggestion bubbles below the greeting */}
+                  {showSuggestions && (
+                    <div className="mt-3 flex flex-col gap-2">
+                      {SUGGESTED_QUESTIONS.slice(0, 4).map((q) => (
+                        <div key={q} className="flex justify-end">
+                          <button
+                            onClick={() => handleSend(q)}
+                            disabled={isLoading}
+                            className="max-w-[82%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed text-left transition-all disabled:opacity-40"
+                            style={{
+                              background: "var(--bubble-user-bg)",
+                              border: "1px solid var(--bubble-user-border)",
+                              color: "var(--bubble-user-color)",
+                              opacity: 0.65,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                            }}
+                            onMouseEnter={(e) => {
+                              (e.currentTarget as HTMLButtonElement).style.opacity = "1";
+                              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 20px var(--bubble-user-shadow)";
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.currentTarget as HTMLButtonElement).style.opacity = "0.65";
+                              (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                            }}
+                          >
+                            {q}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {/* Follow-up question bubbles below the last assistant message */}
                   {isLastMessage &&
                     message.role === "assistant" &&
@@ -903,11 +938,7 @@ export default function Home() {
       <MobileDrawer
         open={showDrawer}
         onClose={() => setShowDrawer(false)}
-        onChipClick={handleSend}
         onContact={() => setShowContact(true)}
-        isLoading={isLoading}
-        atMessageLimit={atMessageLimit}
-        questions={SUGGESTED_QUESTIONS}
       />
     </div>
   );
