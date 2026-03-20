@@ -188,17 +188,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-function Sidebar({
-  onChipClick,
-  isLoading,
-  atMessageLimit,
-  onContact,
-}: {
-  onChipClick: (q: string) => void;
-  isLoading: boolean;
-  atMessageLimit: boolean;
-  onContact: () => void;
-}) {
+function Sidebar({ onContact }: { onContact: () => void }) {
   return (
     <aside
       className="hidden md:flex w-80 shrink-0 flex-col relative z-10"
@@ -237,39 +227,20 @@ function Sidebar({
         <div className="mt-5 w-full h-px" style={{ background: "var(--divider-bg)" }} />
       </div>
 
-      {/* Suggested questions */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        <p className="mb-3 px-2 text-xs font-medium uppercase tracking-widest" style={{ color: "var(--metal-dark)" }}>
-          Ask me
+      {/* Bio */}
+      <div className="flex-1 px-6 py-4">
+        <p
+          style={{
+            fontFamily: "'Courier New', Courier, monospace",
+            fontSize: 12,
+            color: "var(--metal-mid)",
+            lineHeight: 1.75,
+            textAlign: "center",
+            letterSpacing: "0.03em",
+          }}
+        >
+          Eight years at Unity. From early employee through unicorn, IPO, and acquisition. I built this so you can skip the PDF and know in five minutes if I&apos;m worth a call.
         </p>
-        {!atMessageLimit &&
-          SUGGESTED_QUESTIONS.map((q) => (
-            <button
-              key={q}
-              onClick={() => onChipClick(q)}
-              disabled={isLoading}
-              className="mb-2 w-full rounded-xl px-3 py-2.5 text-left text-xs transition-all disabled:opacity-40"
-              style={{
-                background: "var(--chip-bg)",
-                border: "1px solid var(--chip-border)",
-                color: "var(--metal-mid)",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.borderColor = "var(--chip-hover-border)";
-                el.style.color = "var(--chip-hover-color)";
-                el.style.boxShadow = "var(--chip-hover-glow)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.borderColor = "var(--chip-border)";
-                el.style.color = "var(--metal-mid)";
-                el.style.boxShadow = "none";
-              }}
-            >
-              {q}
-            </button>
-          ))}
       </div>
 
       {/* Bottom action buttons */}
@@ -284,6 +255,7 @@ function Sidebar({
         <div className="mt-2 flex gap-2">
           {[
             { label: "LinkedIn", href: "https://www.linkedin.com/in/mathan-perl-9b442076/" },
+            { label: "GitHub",   href: "https://github.com/mtnperl" },
             { label: "Resume",   href: "/resume.pdf" },
           ].map(({ label, href }) => (
             <a
@@ -623,12 +595,7 @@ export default function Home() {
   return (
     <div className="space-bg flex h-dvh overflow-hidden">
       {/* ── Left sidebar (desktop) ──────────────────── */}
-      <Sidebar
-        onChipClick={handleSend}
-        isLoading={isLoading}
-        atMessageLimit={atMessageLimit}
-        onContact={() => setShowContact(true)}
-      />
+      <Sidebar onContact={() => setShowContact(true)} />
 
       {/* ── Right panel ────────────────────────────── */}
       <div className="relative z-10 flex flex-1 flex-col min-w-0">
