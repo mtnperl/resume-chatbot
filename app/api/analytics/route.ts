@@ -62,6 +62,14 @@ export async function POST(request: Request) {
       return Response.json({ ok: true });
     }
 
+    // ── CV Adaptor events ──────────────────────────────────────────────
+    if (event && (event as string).startsWith("cv_adaptor_")) {
+      await kv.incr(`stats:${event}`);
+      await kv.lpush("cv_adaptor:events", JSON.stringify({ event, timestamp: Date.now() }));
+      await kv.ltrim("cv_adaptor:events", 0, 199);
+      return Response.json({ ok: true });
+    }
+
     // ── Legacy: question-based analytics (backward compat) ────────────
     if (!event && body.question) {
       const legacyEvent = {
@@ -101,13 +109,24 @@ export async function GET(request: Request) {
     );
     const validSessions = sessions.filter((s): s is Session => Boolean(s));
 
-    const [recruiterCount, friendCount, lukeCount, chrisCount] =
-      await Promise.all([
-        kv.get<number>("stats:persona:recruiter"),
-        kv.get<number>("stats:persona:friend"),
-        kv.get<number>("stats:persona:luke"),
-        kv.get<number>("stats:persona:chris"),
-      ]);
+    const [
+      recruiterCount, friendCount, lukeCount, chrisCount,
+      cvTailored, cvCoverLetters, cvDownloadsCv, cvDownloadsCl,
+    ] = await Promise.all([
+      kv.get<number>("stats:persona:recruiter"),
+      kv.get<number>("stats:persona:friend"),
+      kv.get<number>("stats:persona:luke"),
+      kv.get<number>("stats:persona:chris"),
+      kv.get<number>("stats:cv_adaptor_tailored"),
+      kv.get<number>("stats:cv_adaptor_cover_letter"),
+      kv.get<number>("stats:cv_adaptor_download_cv"),
+      kv.get<number>("stats:cv_adaptor_download_cover_letter"),
+    ]);
+
+    const cvAdaptorRaw = await kv.lrange<string>("cv_adaptor:events", 0, 49);
+    const cvAdaptorEvents = cvAdaptorRaw
+      .map((e) => { try { return typeof e === "string" ? JSON.parse(e) : e; } catch { return null; } })
+      .filter(Boolean) as { event: string; timestamp: number }[];
 
     const allUserMessages = validSessions.flatMap((s) =>
       s.messages.filter((m) => m.role === "user")
@@ -127,6 +146,13 @@ export async function GET(request: Request) {
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, 20)
         .map((m) => m.content),
+      cvAdaptor: {
+        tailored: cvTailored ?? 0,
+        coverLetters: cvCoverLetters ?? 0,
+        downloadsCv: cvDownloadsCv ?? 0,
+        downloadsCoverLetter: cvDownloadsCl ?? 0,
+        recentEvents: cvAdaptorEvents,
+      },
     });
   } catch (err) {
     console.error("[api/analytics] GET error:", err);

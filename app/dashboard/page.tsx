@@ -16,6 +16,8 @@ type Session = {
   active: boolean;
 };
 
+type CvAdaptorEvent = { event: string; timestamp: number };
+
 type DashboardData = {
   totalSessions: number;
   sessions: Session[];
@@ -27,6 +29,13 @@ type DashboardData = {
   };
   totalMessages: number;
   recentQuestions: string[];
+  cvAdaptor?: {
+    tailored: number;
+    coverLetters: number;
+    downloadsCv: number;
+    downloadsCoverLetter: number;
+    recentEvents: CvAdaptorEvent[];
+  };
 };
 
 function DashboardContent() {
@@ -254,6 +263,131 @@ function DashboardContent() {
           )}
         </div>
       </div>
+
+      {/* CV Adaptor section */}
+      {data.cvAdaptor && (
+        <div style={{ marginTop: 24 }}>
+          <h2
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#111",
+              letterSpacing: "0.4px",
+              marginBottom: 12,
+              textTransform: "uppercase",
+            }}
+          >
+            CV Adaptor
+          </h2>
+
+          {/* CV Adaptor stats */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+              gap: 12,
+              marginBottom: 16,
+            }}
+          >
+            {[
+              { label: "CVS ADAPTED", value: data.cvAdaptor.tailored },
+              { label: "COVER LETTERS", value: data.cvAdaptor.coverLetters },
+              { label: "CV DOWNLOADS", value: data.cvAdaptor.downloadsCv },
+              { label: "CL DOWNLOADS", value: data.cvAdaptor.downloadsCoverLetter },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e5e5e5",
+                  borderRadius: 10,
+                  padding: "16px 18px",
+                  borderTop: "3px solid #0f172a",
+                }}
+              >
+                <div
+                  style={{ fontSize: 10, fontWeight: 600, color: "#888", letterSpacing: "0.6px", marginBottom: 6 }}
+                >
+                  {stat.label}
+                </div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: "#111" }}>
+                  {stat.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Recent activity */}
+          {data.cvAdaptor.recentEvents.length > 0 && (
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e5e5e5",
+                borderRadius: 10,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: "1px solid #e5e5e5",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#888",
+                  letterSpacing: "0.6px",
+                }}
+              >
+                RECENT ACTIVITY
+              </div>
+              <div style={{ padding: "8px 0" }}>
+                {data.cvAdaptor.recentEvents.slice(0, 20).map((ev, i) => {
+                  const label: Record<string, string> = {
+                    cv_adaptor_tailored: "CV adapted",
+                    cv_adaptor_cover_letter: "Cover letter generated",
+                    cv_adaptor_download_cv: "CV downloaded",
+                    cv_adaptor_download_cover_letter: "Cover letter downloaded",
+                  };
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "7px 16px",
+                        borderBottom: i < Math.min(data.cvAdaptor!.recentEvents.length, 20) - 1 ? "1px solid #f5f5f5" : "none",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: "50%",
+                          background: ev.event === "cv_adaptor_tailored" ? "#0f172a"
+                            : ev.event === "cv_adaptor_cover_letter" ? "#6366f1"
+                            : "#10b981",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <div style={{ flex: 1, fontSize: 13, color: "#333" }}>
+                        {label[ev.event] ?? ev.event}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#aaa", whiteSpace: "nowrap" }}>
+                        {new Date(ev.timestamp).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recent questions */}
       {data.recentQuestions.length > 0 && (

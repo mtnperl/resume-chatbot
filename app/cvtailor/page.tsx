@@ -276,6 +276,16 @@ async function parsePdf(file: File): Promise<string> {
   return pages.join("\n\n");
 }
 
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+function track(event: string) {
+  fetch("/api/analytics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event }),
+  }).catch(() => {});
+}
+
 // ─── Filename helper ──────────────────────────────────────────────────────────
 
 function getTailoredFilename(originalName: string): string {
@@ -352,6 +362,7 @@ function UploadScreen({ onComplete }: {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       const segments: Segment[] = data.segments.map((s: Omit<Segment, "status">) => ({ ...s, status: "pending" }));
+      track("cv_adaptor_tailored");
       onComplete(segments, cvFile, jd, cvText);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Something went wrong");
@@ -539,11 +550,13 @@ function ReviewScreen({ segments: initialSegments, originalFile, jd, cvText, onR
         const xml = await xmlFile.async("string");
         zip.file("word/document.xml", applyEditsToXml(xml, segments));
         const blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+        track("cv_adaptor_download_cv");
         triggerDownload(blob, getTailoredFilename(originalFile.name));
       } else {
         const finalText = segments.map((s) => (!s.changed || s.status === "reverted") ? s.original : s.status === "approved" ? s.edited : s.original).join(" ");
         const paras = finalText.split(/\n+/).filter((l) => l.trim()).map((l) => new Paragraph({ children: [new TextRun({ text: l.trim(), size: 24, font: "Calibri" })], spacing: { after: 160 } }));
         const doc = new Document({ sections: [{ children: paras }] });
+        track("cv_adaptor_download_cv");
         triggerDownload(await Packer.toBlob(doc), getTailoredFilename(originalFile?.name ?? "CV.docx"));
       }
     } catch (err) {
@@ -812,6 +825,7 @@ function CoverLetterScreen({ segments, cvText, jd, onBack, onReset }: {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      track("cv_adaptor_cover_letter");
       setCoverLetter(data.coverLetter);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
