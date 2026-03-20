@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import character from "@/data/character";
 import professional from "@/data/professional";
-import timeline from "@/data/timeline";
 
 const client = new Anthropic();
 
@@ -14,44 +12,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Job description is required" }, { status: 400 });
     }
 
-    const prompt = `
-You are Mathan Perl's advocate helping recruiters see why he is a strong fit for a role.
-Your job is to make the strongest honest case for hiring Mathan — highlight transferable strengths,
-reframe gaps as manageable, and surface the aspects of his background that directly address the role's needs.
-Err on the side of optimism: if a requirement is partially met, count it as a match with context.
-Scores should reflect genuine potential, not a strict checklist — a candidate with strong fundamentals
-and a learning track record should score higher than a rigid keyword match would suggest.
+    const prompt = `Score Mathan Perl's fit for this role. Be his advocate — emphasize transferable strengths, reframe gaps constructively. Err optimistic: partial matches count.
 
 JOB DESCRIPTION:
-${jobDescription.slice(0, 4000)}
+${jobDescription.slice(0, 3000)}
 
 MATHAN'S BACKGROUND:
-${character}
-
 ${professional}
 
-${timeline}
+Scoring: 85-100 strong fit, 70-84 good fit, 55-69 worth exploring, <55 unlikely fit.
 
-Scoring guidance:
-- 85-100: Strong alignment — major requirements met, clear compelling narrative
-- 70-84: Good fit — core requirements met, minor gaps that Mathan can address
-- 55-69: Worth exploring — meaningful overlap, some gaps but strong transferable strengths
-- Below 55: Unlikely fit — only if the role fundamentally requires something Mathan has no exposure to
-
-Return ONLY a valid JSON object with NO markdown, NO backticks, NO explanation. Just raw JSON:
-{
-  "score": <number 0-100>,
-  "summary": "<2 sentence overall assessment that leads with Mathan's strongest relevant quality>",
-  "matches": ["<requirement he meets — be specific and confident>", "<requirement he meets>", "<requirement he meets>"],
-  "gaps": ["<gap reframed constructively — note what partially addresses it or how quickly he can close it>"],
-  "talkingPoints": ["<compelling thing Mathan should lead with>", "<strong angle to emphasize>", "<differentiator vs typical candidates>"],
-  "suggestedQuestion": "<one great interview question that lets Mathan showcase his strongest relevant experience>",
-  "verdict": "<STRONG FIT | GOOD FIT | WORTH EXPLORING | UNLIKELY FIT>"
-}`;
+Return ONLY raw JSON, no markdown, no backticks:
+{"score":<0-100>,"summary":"<2 sentences>","matches":["<match>","<match>"],"gaps":["<gap reframed>"],"talkingPoints":["<lead with this>","<strong angle>"],"suggestedQuestion":"<one question>","verdict":"<STRONG FIT|GOOD FIT|WORTH EXPLORING|UNLIKELY FIT>"}`;
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2000,
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1024,
       system: "You are a JSON API. Respond with raw JSON only — no markdown, no backticks, no explanation, no text before or after the JSON object.",
       messages: [{ role: "user", content: prompt }],
     });
