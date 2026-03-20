@@ -634,99 +634,136 @@ export default function Home() {
       <div className="relative z-10 flex flex-1 flex-col min-w-0">
         {/* Top bar */}
         <header
-          className="flex shrink-0 items-center gap-2 px-5 py-3"
+          className="shrink-0"
           style={{ borderBottom: "1px solid var(--header-border)" }}
         >
-          {/* Mobile: hamburger to open drawer */}
-          <button
-            className="flex items-center justify-center md:hidden"
-            onClick={() => setShowDrawer(true)}
-            aria-label="Open menu"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              border: "1px solid var(--header-btn-border)",
-              color: "var(--metal-mid)",
-              background: "none",
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-          >
-            <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
-              <rect width="16" height="2" rx="1" fill="currentColor" />
-              <rect y="5" width="16" height="2" rx="1" fill="currentColor" />
-              <rect y="10" width="16" height="2" rx="1" fill="currentColor" />
-            </svg>
-          </button>
-
-          {/* Mobile: centered name */}
-          <span className="text-sm font-medium md:hidden" style={{ color: "var(--metal-mid)" }}>
-            Mathan Perl
-          </span>
-
-          <div className="ml-auto flex items-center gap-2">
-            <Timeline onSelectPrompt={handleSend} />
-            <RoleFitAnalyzer />
-            <ThemeToggle theme={theme} onToggle={() => setTheme(theme === "light" ? "dark" : "light")} />
-            {canShare && (
+          {/* ── Mobile header: 3-column centered layout ── */}
+          <div className="flex items-center md:hidden px-3 py-2.5" style={{ minHeight: 52 }}>
+            {/* Left: hamburger */}
+            <div style={{ width: 44, flexShrink: 0 }}>
               <button
-                onClick={shareConversation}
-                disabled={shareToast === "copying"}
-                className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-60"
-                style={{ border: "1px solid var(--header-btn-border)", color: shareToast === "copied" ? "var(--accent-glow)" : "var(--metal-mid)" }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.borderColor = "var(--chip-hover-border)";
-                  el.style.color = "var(--chrome-shine)";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.borderColor = "var(--header-btn-border)";
-                  el.style.color = shareToast === "copied" ? "var(--accent-glow)" : "var(--metal-mid)";
+                onClick={() => setShowDrawer(true)}
+                aria-label="Open menu"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  border: "1px solid var(--header-btn-border)",
+                  color: "var(--metal-mid)",
+                  background: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                {shareToast === "copied" ? "✓ Copied!" : shareToast === "copying" ? "…" : "↗ Share"}
+                <svg width="15" height="11" viewBox="0 0 15 11" fill="none">
+                  <rect width="15" height="1.8" rx="0.9" fill="currentColor" />
+                  <rect y="4.6" width="15" height="1.8" rx="0.9" fill="currentColor" />
+                  <rect y="9.2" width="15" height="1.8" rx="0.9" fill="currentColor" />
+                </svg>
               </button>
-            )}
-            {canDownload && (
+            </div>
+
+            {/* Center: name */}
+            <div className="flex-1 flex flex-col items-center">
+              <span style={{ fontSize: 15, fontWeight: 600, color: "var(--chrome-shine)", letterSpacing: "-0.2px" }}>
+                Mathan Perl
+              </span>
+              <span style={{ fontSize: 11, color: "var(--metal-dark)", marginTop: 1 }}>
+                Senior Partnerships Manager
+              </span>
+            </div>
+
+            {/* Right: dark toggle */}
+            <div style={{ width: 44, flexShrink: 0, display: "flex", justifyContent: "flex-end" }}>
               <button
-                onClick={downloadPDF}
-                className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all"
+                onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                aria-label="Toggle theme"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  border: "1px solid var(--header-btn-border)",
+                  color: "var(--metal-mid)",
+                  background: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 16,
+                }}
+              >
+                {theme === "dark" ? "☀" : "🌙"}
+              </button>
+            </div>
+          </div>
+
+          {/* ── Desktop header ── */}
+          <div className="hidden md:flex items-center gap-2 px-5 py-3">
+            <div className="ml-auto flex items-center gap-2">
+              <Timeline onSelectPrompt={handleSend} />
+              <RoleFitAnalyzer />
+              <ThemeToggle theme={theme} onToggle={() => setTheme(theme === "light" ? "dark" : "light")} />
+              {canShare && (
+                <button
+                  onClick={shareConversation}
+                  disabled={shareToast === "copying"}
+                  className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-60"
+                  style={{ border: "1px solid var(--header-btn-border)", color: shareToast === "copied" ? "var(--accent-glow)" : "var(--metal-mid)" }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.borderColor = "var(--chip-hover-border)";
+                    el.style.color = "var(--chrome-shine)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.borderColor = "var(--header-btn-border)";
+                    el.style.color = shareToast === "copied" ? "var(--accent-glow)" : "var(--metal-mid)";
+                  }}
+                >
+                  {shareToast === "copied" ? "✓ Copied!" : shareToast === "copying" ? "…" : "↗ Share"}
+                </button>
+              )}
+              {canDownload && (
+                <button
+                  onClick={downloadPDF}
+                  className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all"
+                  style={{ border: "1px solid var(--header-btn-border)", color: "var(--metal-mid)" }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.borderColor = "var(--chip-hover-border)";
+                    el.style.color = "var(--chrome-shine)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.borderColor = "var(--header-btn-border)";
+                    el.style.color = "var(--metal-mid)";
+                  }}
+                >
+                  ↓ PDF
+                </button>
+              )}
+              <button
+                onClick={() => setShowContact(true)}
+                className="rounded-full px-4 py-1.5 text-sm font-medium transition-all"
                 style={{ border: "1px solid var(--header-btn-border)", color: "var(--metal-mid)" }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLButtonElement;
                   el.style.borderColor = "var(--chip-hover-border)";
                   el.style.color = "var(--chrome-shine)";
+                  el.style.boxShadow = "0 0 12px var(--chip-hover-glow)";
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLButtonElement;
                   el.style.borderColor = "var(--header-btn-border)";
                   el.style.color = "var(--metal-mid)";
+                  el.style.boxShadow = "none";
                 }}
               >
-                ↓ PDF
+                Get in touch
               </button>
-            )}
-            <button
-              onClick={() => setShowContact(true)}
-              className="hidden md:flex rounded-full px-4 py-1.5 text-sm font-medium transition-all"
-              style={{ border: "1px solid var(--header-btn-border)", color: "var(--metal-mid)" }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.borderColor = "var(--chip-hover-border)";
-                el.style.color = "var(--chrome-shine)";
-                el.style.boxShadow = "0 0 12px var(--chip-hover-glow)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.borderColor = "var(--header-btn-border)";
-                el.style.color = "var(--metal-mid)";
-                el.style.boxShadow = "none";
-              }}
-            >
-              Get in touch
-            </button>
+            </div>
           </div>
         </header>
 

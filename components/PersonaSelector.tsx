@@ -13,16 +13,40 @@ const personas = [
 
 export default function PersonaSelector({ onSelect }: Props) {
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", padding: "24px 0" }}>
+    <div style={{ maxWidth: 480, margin: "0 auto", padding: "32px 0 24px" }}>
       <p
         style={{
-          fontSize: 15,
-          color: "var(--text-primary)",
-          marginBottom: 16,
+          fontSize: 13,
+          color: "var(--metal-dark)",
+          marginBottom: 6,
           fontWeight: 500,
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
         }}
       >
-        Before we get started — who am I speaking with?
+        Chat with Mathan Perl
+      </p>
+      <p
+        style={{
+          fontSize: 20,
+          color: "var(--chrome-shine)",
+          marginBottom: 6,
+          fontWeight: 600,
+          letterSpacing: "-0.3px",
+          lineHeight: 1.3,
+        }}
+      >
+        Who am I speaking with?
+      </p>
+      <p
+        style={{
+          fontSize: 13,
+          color: "var(--metal-mid)",
+          marginBottom: 24,
+          lineHeight: 1.5,
+        }}
+      >
+        Ask me anything about Mathan: his experience, how he works, or what makes him different.
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {personas.map((p) => (
