@@ -133,8 +133,7 @@ export default function MobileDrawer({ open, onClose, onContact }: Props) {
               textAlign: "center",
             }}
           >
-            After 3+ years scaling strategic partnerships at Unity, I&apos;m actively looking for my next adventure.
-            Open to roles where I can own enterprise relationships, drive revenue growth, and build something meaningful.
+            Eight years at Unity — from early employee through unicorn, IPO, and acquisition. I built this so you can skip the PDF and know in five minutes if I&apos;m worth a call.
           </p>
           <div style={{ height: 1, background: "var(--divider-bg)" }} />
         </div>

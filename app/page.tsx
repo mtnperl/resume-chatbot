@@ -790,36 +790,47 @@ export default function Home() {
                     isStreaming={isLoading && message.id === streamingId}
                     prevUserQuestion={prevUserMsg?.content as string | undefined}
                   />
-                  {/* Suggestion bubbles below the greeting */}
+                  {/* Suggestion tray below the greeting */}
                   {showSuggestions && (
-                    <div className="mt-3 flex flex-col gap-2">
-                      {SUGGESTED_QUESTIONS.slice(0, 4).map((q) => (
-                        <div key={q} className="flex justify-end">
+                    <div className="mt-4" style={{ borderTop: "1px solid var(--divider-bg)", paddingTop: 14 }}>
+                      <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--metal-dark)", marginBottom: 10 }}>
+                        ✦ Try asking
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        {SUGGESTED_QUESTIONS.slice(0, 4).map((q) => (
                           <button
+                            key={q}
                             onClick={() => handleSend(q)}
                             disabled={isLoading}
-                            className="max-w-[82%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed text-left transition-all disabled:opacity-40"
+                            className="w-full text-left text-sm transition-all disabled:opacity-40"
                             style={{
-                              background: "var(--bubble-user-bg)",
-                              border: "1px solid var(--bubble-user-border)",
-                              color: "var(--bubble-user-color)",
-                              opacity: 0.65,
+                              background: "var(--chip-bg)",
+                              border: "1px solid var(--chip-border)",
+                              borderRadius: 10,
+                              padding: "10px 14px",
+                              color: "var(--metal-mid)",
                               cursor: "pointer",
                               fontFamily: "inherit",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
                             }}
                             onMouseEnter={(e) => {
-                              (e.currentTarget as HTMLButtonElement).style.opacity = "1";
-                              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 20px var(--bubble-user-shadow)";
+                              const el = e.currentTarget as HTMLButtonElement;
+                              el.style.borderColor = "var(--chip-hover-border)";
+                              el.style.color = "var(--chip-hover-color)";
                             }}
                             onMouseLeave={(e) => {
-                              (e.currentTarget as HTMLButtonElement).style.opacity = "0.65";
-                              (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                              const el = e.currentTarget as HTMLButtonElement;
+                              el.style.borderColor = "var(--chip-border)";
+                              el.style.color = "var(--metal-mid)";
                             }}
                           >
+                            <span style={{ opacity: 0.4, fontSize: 12, flexShrink: 0 }}>→</span>
                             {q}
                           </button>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
                   {/* Follow-up question bubbles below the last assistant message */}
