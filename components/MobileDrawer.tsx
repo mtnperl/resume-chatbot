@@ -1,5 +1,7 @@
 "use client";
 
+import RoleFitAnalyzer from "@/components/RoleFitAnalyzer";
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -203,6 +205,9 @@ export default function MobileDrawer({
           >
             Get in touch
           </button>
+          <div style={{ marginTop: 8 }}>
+            <RoleFitAnalyzer fullWidth />
+          </div>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             {[
               { label: "LinkedIn", href: "https://www.linkedin.com/in/mathan-perl-9b442076/" },

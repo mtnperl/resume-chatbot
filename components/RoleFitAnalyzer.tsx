@@ -59,7 +59,7 @@ function Section({
   );
 }
 
-export default function RoleFitAnalyzer() {
+export default function RoleFitAnalyzer({ fullWidth = false }: { fullWidth?: boolean }) {
   const [open, setOpen] = useState(false);
   const [jd, setJd] = useState("");
   const [loading, setLoading] = useState(false);
@@ -95,7 +95,29 @@ export default function RoleFitAnalyzer() {
   }
 
   if (!open) {
-    return (
+    return fullWidth ? (
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          width: "100%",
+          padding: "9px",
+          borderRadius: 12,
+          background: "var(--link-btn-bg)",
+          border: "1px solid var(--link-btn-border)",
+          color: "var(--metal-mid)",
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+        }}
+      >
+        ◎ Role Fit Analyzer
+      </button>
+    ) : (
       <button
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all"
@@ -121,7 +143,7 @@ export default function RoleFitAnalyzer() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6"
       style={{ background: "var(--modal-overlay)", backdropFilter: "blur(6px)" }}
       onClick={(e) => e.target === e.currentTarget && close()}
     >

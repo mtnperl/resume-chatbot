@@ -51,7 +51,7 @@ Return ONLY a valid JSON object with NO markdown, NO backticks, NO explanation. 
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 1000,
+      max_tokens: 2000,
       system: "You are a JSON API. Respond with raw JSON only — no markdown, no backticks, no explanation, no text before or after the JSON object.",
       messages: [{ role: "user", content: prompt }],
     });
