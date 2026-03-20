@@ -1,14 +1,23 @@
 "use client";
 
+import { TbPlayerEject } from "react-icons/tb";
+import { GiPartyHat, GiRevolver } from "react-icons/gi";
+
 type Props = {
   onSelect: (persona: string) => void;
 };
 
-const personas = [
-  { id: "recruiter", emoji: "🎯", label: "A recruiter doing their job" },
-  { id: "friend", emoji: "😅", label: "A friend who has heard this 100 times" },
-  { id: "michael", emoji: "🏆", label: "Michael Scott, World's Best Boss" },
-  { id: "chris", emoji: "🍝", label: "Christopher Moltisanti" },
+type Persona = {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+};
+
+const personas: Persona[] = [
+  { id: "recruiter", label: "A recruiter doing their job", icon: <span style={{ fontSize: 18 }}>💼</span> },
+  { id: "friend",    label: "A friend who has heard this 100 times", icon: <TbPlayerEject size={20} /> },
+  { id: "michael",  label: "Michael Scott, World's Best Boss", icon: <GiPartyHat size={20} /> },
+  { id: "chris",    label: "Christopher Moltisanti", icon: <GiRevolver size={20} /> },
 ];
 
 export default function PersonaSelector({ onSelect }: Props) {
@@ -81,7 +90,7 @@ export default function PersonaSelector({ onSelect }: Props) {
               el.style.color = "var(--text-secondary)";
             }}
           >
-            <span style={{ fontSize: 18 }}>{p.emoji}</span>
+            <span style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>{p.icon}</span>
             <span>{p.label}</span>
           </button>
         ))}
