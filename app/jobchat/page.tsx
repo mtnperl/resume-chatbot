@@ -403,19 +403,52 @@ export default function Home() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullContent = "";
+
+        // Typewriter queue: buffer incoming chunks, reveal ~4 chars per rAF tick
+        const typewriterQueue: string[] = [];
+        let typewriterRunning = false;
+
+        function drainQueue(msgId: string) {
+          if (typewriterQueue.length === 0) {
+            typewriterRunning = false;
+            return;
+          }
+          const batch = typewriterQueue.splice(0, 4).join("");
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === msgId ? { ...m, content: (m.content as string) + batch } : m
+            )
+          );
+          requestAnimationFrame(() => drainQueue(msgId));
+        }
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value);
           fullContent += chunk;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMessage.id
-                ? { ...m, content: (m.content as string) + chunk }
-                : m
-            )
-          );
+          // Push individual characters into the queue
+          for (const char of chunk) typewriterQueue.push(char);
+          if (!typewriterRunning) {
+            typewriterRunning = true;
+            requestAnimationFrame(() => drainQueue(assistantMessage.id));
+          }
         }
+
+        // Drain any remaining characters after the stream ends
+        await new Promise<void>((resolve) => {
+          function finish() {
+            if (typewriterQueue.length === 0) { resolve(); return; }
+            const batch = typewriterQueue.splice(0, 4).join("");
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMessage.id ? { ...m, content: (m.content as string) + batch } : m
+              )
+            );
+            requestAnimationFrame(finish);
+          }
+          requestAnimationFrame(finish);
+        });
 
         // Log assistant reply for recruiter sessions (fire-and-forget)
         if (persona === "recruiter" && fullContent) {
