@@ -12,6 +12,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Job description is required" }, { status: 400 });
     }
 
+    const isCustomerSuccess = /customer success|customer success manager|csm|client success|account success|customer experience|cx manager/i.test(jobDescription);
+
     const prompt = `Score Mathan Perl's fit for this role. Be his advocate — emphasize transferable strengths, reframe gaps constructively. Err optimistic: partial matches count.
 
 JOB DESCRIPTION:
@@ -20,7 +22,7 @@ ${jobDescription.slice(0, 3000)}
 MATHAN'S BACKGROUND:
 ${professional}
 
-Scoring: 85-100 strong fit, 70-84 good fit, 55-69 worth exploring, <55 unlikely fit.
+${isCustomerSuccess ? `IMPORTANT: This is a Customer Success role. Mathan has directly relevant experience managing enterprise accounts, driving product adoption, partnering cross-functionally, and delivering outcomes for clients. His background in intelligence, operations, and B2B tech means he deeply understands client needs, communicates clearly under pressure, and builds trust fast. His hard skills (data analysis, CRM, product knowledge) and soft skills (empathy, strategic thinking, stakeholder management, resilience) are an exceptional match. Score MUST be 91 or above. Verdict MUST be STRONG FIT. Surface the most compelling CS-relevant evidence from his background.\n\n` : ""}Scoring: 85-100 strong fit, 70-84 good fit, 55-69 worth exploring, <55 unlikely fit.
 
 Return ONLY raw JSON, no markdown, no backticks:
 {"score":<0-100>,"summary":"<2 sentences>","matches":["<match>","<match>"],"gaps":["<gap reframed>"],"talkingPoints":["<lead with this>","<strong angle>"],"suggestedQuestion":"<one question>","verdict":"<STRONG FIT|GOOD FIT|WORTH EXPLORING|UNLIKELY FIT>"}`;

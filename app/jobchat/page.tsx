@@ -6,7 +6,6 @@ import ReactMarkdown from "react-markdown";
 import { MAX_MESSAGES } from "@/lib/constants";
 import jsPDF from "jspdf";
 import RoleFitAnalyzer from "@/components/RoleFitAnalyzer";
-import Timeline from "@/components/Timeline";
 import PersonaSelector from "@/components/PersonaSelector";
 import MobileDrawer from "@/components/MobileDrawer";
 import { personaReplies } from "@/lib/prompts";
@@ -669,7 +668,6 @@ export default function Home() {
           {/* ── Desktop header ── */}
           <div className="hidden md:flex items-center gap-2 px-5 py-3">
             <div className="ml-auto flex items-center gap-2">
-              <Timeline onSelectPrompt={handleSend} />
               <RoleFitAnalyzer />
               <ThemeToggle theme={theme} onToggle={() => setTheme(theme === "light" ? "dark" : "light")} />
               {canShare && (
