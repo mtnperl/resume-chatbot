@@ -7,6 +7,7 @@ import { kv } from "@vercel/kv";
 // Fail open if KV env vars are missing (e.g., local dev without Vercel KV)
 let chatRatelimit: Ratelimit | null = null;
 let tailorRatelimit: Ratelimit | null = null;
+let rolefitRatelimit: Ratelimit | null = null;
 
 if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
   chatRatelimit = new Ratelimit({
@@ -22,6 +23,12 @@ if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     analytics: false,
     prefix: "resume-chatbot:rl:tailor",
   });
+  rolefitRatelimit = new Ratelimit({
+    redis: kv,
+    limiter: Ratelimit.slidingWindow(10, "1 h"),
+    analytics: false,
+    prefix: "resume-chatbot:rl:rolefit",
+  });
 }
 
 function getRatelimiter(pathname: string): Ratelimit | null {
@@ -30,6 +37,9 @@ function getRatelimiter(pathname: string): Ratelimit | null {
   }
   if (pathname.startsWith("/api/chat")) {
     return chatRatelimit;
+  }
+  if (pathname.startsWith("/api/rolefit")) {
+    return rolefitRatelimit;
   }
   return null;
 }
@@ -75,5 +85,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/chat", "/api/tailor", "/api/cover-letter"],
+  matcher: ["/api/chat", "/api/tailor", "/api/cover-letter", "/api/rolefit"],
 };

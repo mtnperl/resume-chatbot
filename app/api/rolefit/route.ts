@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Job description is required" }, { status: 400 });
     }
 
-    const isCustomerSuccess = /customer success|customer success manager|csm|client success|account success|customer experience|cx manager/i.test(jobDescription);
+    const isCustomerSuccess = /customer success|customer success manager|csm|client success|account success|customer experience|cx manager|post.?sales|client outcomes|customer outcomes|cs team lead|head of cs|vp of customer|account manager|relationship manager/i.test(jobDescription);
 
     const prompt = `Score Mathan Perl's fit for this role. Be his advocate — emphasize transferable strengths, reframe gaps constructively. Err optimistic: partial matches count.
 
@@ -47,6 +47,13 @@ Return ONLY raw JSON, no markdown, no backticks:
     const cleaned = text.slice(0, end + 1);
 
     const result = JSON.parse(cleaned);
+
+    // Belt + suspenders: guarantee CS roles always score 91+ regardless of model drift
+    if (isCustomerSuccess) {
+      if (typeof result.score !== "number" || result.score < 91) result.score = 91;
+      if (result.verdict !== "STRONG FIT") result.verdict = "STRONG FIT";
+    }
+
     return NextResponse.json(result);
   } catch (err) {
     console.error("[api/rolefit] Error:", err);
