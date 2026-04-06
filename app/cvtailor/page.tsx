@@ -417,6 +417,98 @@ function track(event: string) {
   }).catch(() => {});
 }
 
+// ─── Google Docs export ───────────────────────────────────────────────────────
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        oauth2: {
+          initTokenClient(cfg: {
+            client_id: string;
+            scope: string;
+            callback: (resp: { access_token?: string; error?: string }) => void;
+          }): { requestAccessToken(): void };
+        };
+      };
+    };
+  }
+}
+
+async function loadGis(): Promise<void> {
+  if (window.google?.accounts?.oauth2) return;
+  await new Promise<void>((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Failed to load Google Identity Services"));
+    document.head.appendChild(s);
+  });
+}
+
+async function getGoogleToken(): Promise<string> {
+  await loadGis();
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  if (!clientId) throw new Error("NEXT_PUBLIC_GOOGLE_CLIENT_ID is not set");
+
+  return new Promise((resolve, reject) => {
+    const client = window.google!.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: "https://www.googleapis.com/auth/drive.file",
+      callback: (resp) => {
+        if (resp.error || !resp.access_token) reject(new Error(resp.error ?? "No token returned"));
+        else resolve(resp.access_token!);
+      },
+    });
+    client.requestAccessToken();
+  });
+}
+
+async function uploadBlobAsGoogleDoc(blob: Blob, filename: string, token: string): Promise<string> {
+  // Strip extension — Google Docs doesn't want it in the title
+  const title = filename.replace(/\.(docx|pdf)$/i, "");
+
+  // Multipart upload: metadata + file body, convert to Google Doc format
+  const boundary = "cvtailor_boundary";
+  const metadata = JSON.stringify({ name: title, mimeType: "application/vnd.google-apps.document" });
+  const bodyParts = [
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
+    `--${boundary}\r\nContent-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document\r\n\r\n`,
+  ];
+
+  const encoder = new TextEncoder();
+  const part1 = encoder.encode(bodyParts[0]);
+  const part2 = encoder.encode(bodyParts[1]);
+  const closing = encoder.encode(`\r\n--${boundary}--`);
+  const fileBytes = new Uint8Array(await blob.arrayBuffer());
+
+  const combined = new Uint8Array(part1.length + part2.length + fileBytes.length + closing.length);
+  combined.set(part1, 0);
+  combined.set(part2, part1.length);
+  combined.set(fileBytes, part1.length + part2.length);
+  combined.set(closing, part1.length + part2.length + fileBytes.length);
+
+  const res = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&convert=true",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`,
+      },
+      body: combined,
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Drive upload failed (${res.status}): ${text}`);
+  }
+
+  const { id } = await res.json() as { id: string };
+  return `https://docs.google.com/document/d/${id}/edit`;
+}
+
 // ─── Filename helper ──────────────────────────────────────────────────────────
 
 function getTailoredFilename(originalName: string): string {
@@ -645,6 +737,7 @@ function ReviewScreen({ segments: initialSegments, originalFile, jd, cvText, pdf
 }) {
   const [segments, setSegments] = useState<Segment[]>(initialSegments);
   const [downloading, setDownloading] = useState(false);
+  const [exportingGdoc, setExportingGdoc] = useState(false);
   const [showAtsDetail, setShowAtsDetail] = useState(false);
   const [showInterviewPrep, setShowInterviewPrep] = useState(false);
 
@@ -729,6 +822,50 @@ function ReviewScreen({ segments: initialSegments, originalFile, jd, cvText, pdf
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = name; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function openInGoogleDocs() {
+    setExportingGdoc(true);
+    try {
+      const token = await getGoogleToken();
+      // Build the same blob as downloadDocx
+      let blob: Blob;
+      const filename = getTailoredFilename(originalFile?.name ?? "CV.docx");
+      if (originalFile?.name.endsWith(".docx")) {
+        const JSZip = (await import("jszip")).default;
+        const zip = await JSZip.loadAsync(await originalFile.arrayBuffer());
+        const xmlFile = zip.file("word/document.xml");
+        if (!xmlFile) throw new Error("Invalid docx");
+        const xml = await xmlFile.async("string");
+        zip.file("word/document.xml", applyEditsToXml(xml, segments));
+        blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      } else {
+        const approved = segments.filter((s) => s.changed && s.status === "approved" && s.original !== s.edited);
+        let paragraphs: Paragraph[];
+        if (pdfBlocks && pdfBlocks.length > 0) {
+          const patched = pdfBlocks.map((b) => ({ ...b }));
+          for (const seg of approved) {
+            const origTrimmed = seg.original.trim();
+            const editedTrimmed = seg.edited.trim();
+            for (const block of patched) {
+              if (block.text.includes(origTrimmed)) { block.text = block.text.replace(origTrimmed, editedTrimmed); break; }
+            }
+          }
+          paragraphs = patched.filter((b) => b.text.trim()).map(blockToParagraph);
+        } else {
+          const finalText = segments.map((s) => (!s.changed || s.status === "reverted") ? s.original : s.status === "approved" ? s.edited : s.original).join(" ");
+          paragraphs = finalText.split(/\n+/).filter((l) => l.trim()).map((l) => new Paragraph({ children: [new TextRun({ text: l.trim(), size: 20, font: "Calibri" })], spacing: { after: 160 } }));
+        }
+        const doc = new Document({ sections: [{ children: paragraphs }] });
+        blob = await Packer.toBlob(doc);
+      }
+      track("cv_adaptor_export_gdoc");
+      const url = await uploadBlobAsGoogleDoc(blob, filename, token);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("Google Docs export failed:", err);
+      alert("Could not open in Google Docs. Please try again.");
+    } finally { setExportingGdoc(false); }
   }
 
   return (
@@ -843,11 +980,20 @@ function ReviewScreen({ segments: initialSegments, originalFile, jd, cvText, pdf
             Generate cover letter →
           </button>
           {approved.length > 0 && (
-            <button onClick={downloadDocx} disabled={downloading}
-              className="flex items-center gap-2 border border-emerald-600 bg-emerald-600 px-5 py-2 font-mono text-xs tracking-wider uppercase text-white hover:bg-emerald-700 transition-colors disabled:opacity-50">
-              {downloading && <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-              Download .docx
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={openInGoogleDocs} disabled={exportingGdoc || downloading}
+                className="flex items-center gap-2 border border-emerald-600 bg-emerald-600 px-5 py-2 font-mono text-xs tracking-wider uppercase text-white hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                {exportingGdoc
+                  ? <><span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" /> Opening…</>
+                  : <><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM8 13h8v1.5H8V13zm0 3h6v1.5H8V16zm0-6h3v1.5H8V10z"/></svg> Open in Google Docs</>
+                }
+              </button>
+              <button onClick={downloadDocx} disabled={downloading || exportingGdoc}
+                className="flex items-center gap-2 border border-slate-300 bg-white px-4 py-2 font-mono text-xs tracking-wider uppercase text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                {downloading && <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />}
+                .docx
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -975,6 +1121,7 @@ function CoverLetterScreen({ segments, cvText, jd, onBack, onReset }: {
   const [coverLetter, setCoverLetter] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportingGdoc, setExportingGdoc] = useState(false);
 
   async function generate() {
     setLoading(true); setError(null);
@@ -992,8 +1139,8 @@ function CoverLetterScreen({ segments, cvText, jd, onBack, onReset }: {
     } finally { setLoading(false); }
   }
 
-  async function downloadDocx() {
-    if (!coverLetter) return;
+  async function buildCoverLetterBlob(): Promise<Blob> {
+    if (!coverLetter) throw new Error("No cover letter");
     const paras = coverLetter
       .split(/\n\n+/)
       .filter((p) => p.trim())
@@ -1002,10 +1149,30 @@ function CoverLetterScreen({ segments, cvText, jd, onBack, onReset }: {
         spacing: { after: 240 },
       }));
     const doc = new Document({ sections: [{ children: paras }] });
-    const blob = await Packer.toBlob(doc);
+    return Packer.toBlob(doc);
+  }
+
+  async function downloadDocx() {
+    if (!coverLetter) return;
+    const blob = await buildCoverLetterBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "Cover_Letter.docx"; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function openInGoogleDocs() {
+    if (!coverLetter) return;
+    setExportingGdoc(true);
+    try {
+      const token = await getGoogleToken();
+      const blob = await buildCoverLetterBlob();
+      track("cv_adaptor_export_gdoc_cover_letter");
+      const url = await uploadBlobAsGoogleDoc(blob, "Cover_Letter.docx", token);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("Google Docs export failed:", err);
+      alert("Could not open in Google Docs. Please try again.");
+    } finally { setExportingGdoc(false); }
   }
 
   return (
@@ -1052,9 +1219,16 @@ function CoverLetterScreen({ segments, cvText, jd, onBack, onReset }: {
                 className="font-mono text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors">
                 Regenerate
               </button>
-              <button onClick={downloadDocx}
-                className="border border-slate-900 bg-slate-900 px-4 py-1.5 font-mono text-xs tracking-wider uppercase text-white hover:bg-slate-700 transition-colors">
-                Download .docx
+              <button onClick={openInGoogleDocs} disabled={exportingGdoc}
+                className="flex items-center gap-2 border border-emerald-600 bg-emerald-600 px-4 py-1.5 font-mono text-xs tracking-wider uppercase text-white hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                {exportingGdoc
+                  ? <><span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" /> Opening…</>
+                  : <><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM8 13h8v1.5H8V13zm0 3h6v1.5H8V16zm0-6h3v1.5H8V10z"/></svg> Open in Google Docs</>
+                }
+              </button>
+              <button onClick={downloadDocx} disabled={exportingGdoc}
+                className="border border-slate-300 bg-white px-4 py-1.5 font-mono text-xs tracking-wider uppercase text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                .docx
               </button>
             </div>
           </div>
