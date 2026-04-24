@@ -9,9 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Chat with Mathan Perl",
-  description:
-    "Ask me anything about Mathan Perl's professional background, skills, and experience.",
+  title: "Mathan Perl",
+  description: "Access terminal for Mathan Perl's tools and projects.",
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230f172a'/><text x='50' y='72' font-size='60' font-family='monospace' fill='%23e2e8f0' text-anchor='middle'>M</text></svg>",
   },
