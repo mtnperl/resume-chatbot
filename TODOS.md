@@ -2,6 +2,16 @@
 
 ## P1
 
+### Refactor cvtailor/page.tsx into components
+**What:** Split the 606-line God component into: `page.tsx` (orchestrator), `components/UploadScreen.tsx`, `components/ReviewScreen.tsx`, `components/CoverLetterScreen.tsx`, `components/InfoTip.tsx`, `lib/docxPatcher.ts`, `lib/fileParsers.ts`, `types.ts`.
+**Why:** File will grow to 1000+ lines when cover letter + session save are added. Splitting now makes each feature a clean addition.
+**Pros:** Testable units, clearer ownership, faster to navigate.
+**Cons:** Delays shipping features by one step.
+**Context:** Do this before building cover letter generation or session persistence. Start by extracting `docxPatcher.ts` (the XML utilities) and `fileParsers.ts` (mammoth/pdfjs), then split the screen components.
+**Effort:** S (human: ~2h) → with CC+gstack: S (~15min)
+**Priority:** P1
+**Depends on:** nothing
+
 ### Smart conversation history (sliding window)
 **What:** Instead of hard-capping at 20 messages, implement a sliding window that always includes the first user message (context anchor) + the last N messages. Improves quality for long sessions.
 **Why:** Hard cap (20 messages) works for v1, but a long conversation that gets truncated loses context abruptly. A sliding window preserves coherence.
