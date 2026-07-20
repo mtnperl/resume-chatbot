@@ -3,6 +3,44 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
+// Models occasionally emit raw control characters (literal newlines, tabs)
+// inside JSON string values instead of escaping them, which breaks
+// JSON.parse. Walk the string and escape control chars found inside
+// string literals, leaving structural whitespace between tokens intact.
+function escapeControlCharsInStrings(json: string): string {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+  for (const ch of json) {
+    if (inString) {
+      if (escaped) {
+        result += ch;
+        escaped = false;
+      } else if (ch === "\\") {
+        result += ch;
+        escaped = true;
+      } else if (ch === '"') {
+        result += ch;
+        inString = false;
+      } else if (ch === "\n") {
+        result += "\\n";
+      } else if (ch === "\r") {
+        result += "\\r";
+      } else if (ch === "\t") {
+        result += "\\t";
+      } else if (ch.charCodeAt(0) < 0x20) {
+        result += "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0");
+      } else {
+        result += ch;
+      }
+    } else {
+      if (ch === '"') inString = true;
+      result += ch;
+    }
+  }
+  return result;
+}
+
 const SYSTEM_PROMPT = `You are an expert CV/resume editor. Your job is to tailor a CV to a specific job description.
 
 You will receive:
@@ -70,7 +108,7 @@ export async function POST(req: NextRequest) {
     const start = raw.indexOf("[");
     const end = raw.lastIndexOf("]");
     if (start === -1 || end === -1) throw new SyntaxError("No JSON array in response");
-    const cleaned = raw.slice(start, end + 1);
+    const cleaned = escapeControlCharsInStrings(raw.slice(start, end + 1));
 
     const segments = JSON.parse(cleaned);
 
