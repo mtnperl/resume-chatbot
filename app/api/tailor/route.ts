@@ -58,22 +58,19 @@ export async function POST(req: NextRequest) {
     const userMessage = `CV TEXT:\n${cvText.slice(0, 6000)}\n\nJOB DESCRIPTION:\n${jobDescription.slice(0, 2000)}`;
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-5",
       max_tokens: 4000,
       system: SYSTEM_PROMPT,
-      messages: [
-        { role: "user", content: userMessage },
-        { role: "assistant", content: "[" }, // prefill to force JSON array
-      ],
+      messages: [{ role: "user", content: userMessage }],
     });
 
-    const raw =
-      response.content[0].type === "text" ? response.content[0].text.trim() : "";
+    const textBlock = response.content.find((b) => b.type === "text");
+    const raw = textBlock ? textBlock.text.trim() : "";
 
-    const text = "[" + raw;
-    const end = text.lastIndexOf("]");
-    if (end === -1) throw new SyntaxError("No closing bracket in response");
-    const cleaned = text.slice(0, end + 1);
+    const start = raw.indexOf("[");
+    const end = raw.lastIndexOf("]");
+    if (start === -1 || end === -1) throw new SyntaxError("No JSON array in response");
+    const cleaned = raw.slice(start, end + 1);
 
     const segments = JSON.parse(cleaned);
 

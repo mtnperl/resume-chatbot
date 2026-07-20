@@ -64,14 +64,14 @@ export async function POST(req: NextRequest) {
     ].join("");
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-5",
       max_tokens: 1500,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text.trim() : "";
+    const textBlock = response.content.find((b) => b.type === "text");
+    const text = textBlock ? textBlock.text.trim() : "";
 
     if (!text) {
       return NextResponse.json(
